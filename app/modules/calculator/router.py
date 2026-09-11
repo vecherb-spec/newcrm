@@ -60,9 +60,7 @@ def _read(calculation: EngineeringCalculation) -> SavedCalculationRead:
 async def list_calculations(
     session: AsyncSession = Depends(get_session),
 ) -> list[SavedCalculationRead]:
-    query = select(EngineeringCalculation).order_by(
-        EngineeringCalculation.created_at.desc()
-    )
+    query = select(EngineeringCalculation).order_by(EngineeringCalculation.created_at.desc())
     calculations = await session.scalars(query.limit(50))
     return [_read(item) for item in calculations]
 
