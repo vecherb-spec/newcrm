@@ -77,11 +77,7 @@ class ProjectUpdate(BaseModel):
 
 @router.get("", response_model=list[ProjectRead])
 async def list_projects(session: AsyncSession = Depends(get_session)) -> list[Project]:
-    query = (
-        select(Project)
-        .options(selectinload(Project.tasks))
-        .order_by(Project.created_at.desc())
-    )
+    query = select(Project).options(selectinload(Project.tasks)).order_by(Project.created_at.desc())
     return list(await session.scalars(query))
 
 
@@ -110,9 +106,7 @@ async def create_project(
 
 async def _get_project(project_id: UUID, session: AsyncSession) -> Project:
     project = await session.scalar(
-        select(Project)
-        .where(Project.id == project_id)
-        .options(selectinload(Project.tasks))
+        select(Project).where(Project.id == project_id).options(selectinload(Project.tasks))
     )
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
