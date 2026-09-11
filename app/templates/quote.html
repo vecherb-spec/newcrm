@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Коммерческое предложение {{ number }}</title>
+  <style>
+    body { font: 15px Arial, sans-serif; color: #172033; margin: 48px; }
+    header { border-bottom: 3px solid #0891b2; padding-bottom: 18px; }
+    h1 { margin-top: 48px; }
+    .total { margin-top: 40px; padding: 20px; background: #ecfeff; font-size: 22px; }
+    footer { position: fixed; bottom: 20px; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header><strong>LED OPS</strong> · Инженерные светодиодные системы</header>
+  <h1>Коммерческое предложение № {{ number }}</h1>
+  <p>Заказчик: <strong>{{ customer }}</strong></p>
+  <p>Проект: {{ project }}</p>
+  <div class="total">Итого: <strong>{{ "{:,.2f}".format(total) }} {{ currency }}</strong></div>
+  <footer>Документ сформирован системой LED Ops.</footer>
+</body>
+</html>
