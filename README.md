@@ -10,7 +10,7 @@ inventory and project finance.
 - Telegram webhook with secret verification and optional LLM parsing
 - deterministic, UI-independent LED screen calculation engine and BOM
 - interactive engineering workspace with versioned input, BOM and pricing snapshots
-- project execution, assignments and stage entities
+- project lifecycle, standard installation checklist, assignments and progress tracking
 - SKU stock, reservations/transactions and minimum-stock alerts
 - project finance entries, invoices and planned/actual economics endpoint
 - escaped Jinja2 commercial proposal preview

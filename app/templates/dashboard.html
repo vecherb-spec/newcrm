@@ -31,6 +31,9 @@
   </div>
 
   <div x-cloak x-show="token" class="flex min-h-full">
+    <button x-show="error" @click="error=''"
+            class="fixed right-5 top-5 z-50 max-w-md rounded-lg border border-rose-700 bg-rose-950 px-4 py-3 text-left text-sm text-rose-200 shadow-xl"
+            x-text="error"></button>
     <aside class="fixed inset-y-0 w-60 border-r border-slate-800 bg-slate-900 p-5">
       <div class="mb-8 text-xl font-bold text-cyan-400">LED OPS</div>
       <nav class="space-y-1 text-sm">
@@ -40,7 +43,10 @@
         <button @click="section='engineering'"
                 :class="section==='engineering' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
                 class="block w-full rounded px-3 py-2 text-left">Инженерия</button>
-        <template x-for="item in ['Проекты','Склад','Финансы']">
+        <button @click="section='projects'"
+                :class="section==='projects' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">Проекты</button>
+        <template x-for="item in ['Склад','Финансы']">
           <button disabled class="block w-full rounded px-3 py-2 text-left text-slate-600" x-text="item"></button>
         </template>
       </nav>
@@ -212,6 +218,92 @@
           </div>
         </div>
       </div>
+
+      <div x-cloak x-show="section==='projects'">
+        <header class="mb-6 flex items-center justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-cyan-500">Исполнение</p>
+            <h1 class="text-2xl font-semibold">Проекты и монтажи</h1>
+          </div>
+          <button @click="showProjectForm=true" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Новый проект</button>
+        </header>
+        <div class="grid grid-cols-[300px_minmax(0,1fr)] gap-5">
+          <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+            <div class="border-b border-slate-800 px-4 py-3 text-sm font-semibold">Все проекты</div>
+            <div class="divide-y divide-slate-800">
+              <template x-for="project in projects" :key="project.id">
+                <button @click="selectedProjectId=project.id"
+                        :class="selectedProjectId===project.id ? 'bg-cyan-500/10' : ''"
+                        class="w-full px-4 py-3 text-left hover:bg-slate-800/50">
+                  <p class="truncate text-sm font-medium" x-text="project.name"></p>
+                  <div class="mt-2 flex justify-between text-xs text-slate-500">
+                    <span x-text="projectStatusLabel(project.status)"></span>
+                    <span x-text="`${projectProgress(project)}%`"></span>
+                  </div>
+                  <div class="mt-2 h-1 rounded bg-slate-800">
+                    <div class="h-1 rounded bg-emerald-500" :style="`width:${projectProgress(project)}%`"></div>
+                  </div>
+                </button>
+              </template>
+              <p x-show="!projects.length" class="p-6 text-center text-sm text-slate-600">Проектов пока нет</p>
+            </div>
+          </section>
+
+          <section x-show="selectedProject" class="min-w-0 space-y-4">
+            <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <div class="flex items-start justify-between gap-5">
+                <div>
+                  <h2 class="text-xl font-semibold" x-text="selectedProject?.name"></h2>
+                  <p class="mt-1 text-sm text-slate-500" x-text="selectedProject?.installation_address || 'Адрес не указан'"></p>
+                </div>
+                <label class="text-xs text-slate-500">Стадия проекта
+                  <select :value="selectedProject?.status" @change="updateProject({status:$event.target.value})"
+                          class="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                    <template x-for="item in projectStatuses" :key="item.code">
+                      <option :value="item.code" x-text="item.label"></option>
+                    </template>
+                  </select>
+                </label>
+              </div>
+              <div class="mt-5 grid grid-cols-3 gap-3 text-sm">
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Дата монтажа</p><p class="mt-1" x-text="selectedProject?.installation_date || 'Не назначена'"></p></div>
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Доставка</p><p class="mt-1" x-text="selectedProject?.delivery_status"></p></div>
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Готовность</p><p class="mt-1" x-text="`${projectProgress(selectedProject)}%`"></p></div>
+              </div>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                <h3 class="text-sm font-semibold">Чек-лист исполнения</h3>
+                <span class="text-xs text-slate-500" x-text="`${selectedProject?.tasks.filter(t=>t.status==='DONE').length || 0} / ${selectedProject?.tasks.length || 0}`"></span>
+              </div>
+              <div class="divide-y divide-slate-800">
+                <template x-for="task in selectedProject?.tasks || []" :key="task.id">
+                  <div class="grid grid-cols-[minmax(0,1fr)_180px_140px] items-center gap-3 px-5 py-3">
+                    <div class="flex items-center gap-3">
+                      <button @click="toggleTask(task)"
+                              :class="task.status==='DONE' ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'"
+                              class="grid h-5 w-5 shrink-0 place-items-center rounded border text-xs text-slate-950"
+                              x-text="task.status==='DONE' ? '✓' : ''"></button>
+                      <span :class="task.status==='DONE' ? 'line-through text-slate-600' : ''" class="text-sm" x-text="task.title"></span>
+                    </div>
+                    <input :value="task.assignee || ''" @change="updateTask(task,{assignee:$event.target.value || null})"
+                           placeholder="Ответственный"
+                           class="rounded border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs">
+                    <select :value="task.status" @change="updateTask(task,{status:$event.target.value})"
+                            class="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs">
+                      <template x-for="item in taskStatuses" :key="item.code"><option :value="item.code" x-text="item.label"></option></template>
+                    </select>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </section>
+          <div x-show="!selectedProject" class="grid min-h-64 place-items-center rounded-xl border border-dashed border-slate-800 text-sm text-slate-600">
+            Выберите проект или создайте новый
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -229,12 +321,40 @@
     </form>
   </div>
 
+  <div x-cloak x-show="showProjectForm" class="fixed inset-0 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showProjectForm=false">
+    <form @submit.prevent="createProject" class="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <h2 class="text-lg font-semibold">Новый проект</h2>
+      <input x-model="newProject.name" required minlength="2" placeholder="Название проекта"
+             class="mt-5 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
+      <input x-model="newProject.installation_address" placeholder="Адрес монтажа"
+             class="mt-3 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
+      <label class="mt-3 block text-xs text-slate-500">Дата монтажа
+        <input x-model="newProject.installation_date" type="date"
+               class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100">
+      </label>
+      <label class="mt-3 block text-xs text-slate-500">Выигранный лид
+        <select x-model="newProject.lead_id" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100">
+          <option value="">Без привязки</option>
+          <template x-for="lead in leads.filter(item=>item.status==='CLOSED_WON')" :key="lead.id">
+            <option :value="lead.id" x-text="lead.title"></option>
+          </template>
+        </select>
+      </label>
+      <div class="mt-5 flex justify-end gap-3">
+        <button type="button" @click="showProjectForm=false" class="px-4 py-2 text-sm text-slate-400">Отмена</button>
+        <button class="rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Создать с чек-листом</button>
+      </div>
+    </form>
+  </div>
+
   <script>
     function dashboard() {
       return {
         token: localStorage.getItem('ledops_token') || '',
-        user: null, leads: [], query: '', error: '', bootstrap: false, showLeadForm: false,
+        user: null, leads: [], query: '', error: '', bootstrap: false,
+        showLeadForm: false, showProjectForm: false,
         section: 'pipeline', calculations: [], calculationResult: null,
+        projects: [], selectedProjectId: null,
         calculationName: '', calculationLeadId: '',
         calculationInput: {
           width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000,
@@ -243,11 +363,20 @@
         },
         credentials: {email: '', password: '', full_name: ''},
         newLead: {title: '', raw_text: '', source: 'manual'},
+        newProject: {name:'',installation_address:'',installation_date:'',lead_id:''},
         statuses: [
           ['NEW','Новые'],['QUALIFICATION','Квалификация'],['CALCULATING','Расчёт'],
           ['PROPOSAL_SENT','КП отправлено'],['CONTRACT_SIGNING','Договор'],
           ['IN_PROJECT','В проекте'],['CLOSED_WON','Успех'],['CLOSED_LOST','Отказ']
         ].map(([code,label]) => ({code,label})),
+        projectStatuses: [
+          ['PLANNING','Планирование'],['PROCUREMENT','Закупка'],['PRODUCTION','Производство'],
+          ['INSTALLATION','Монтаж'],['COMMISSIONING','Пусконаладка'],['COMPLETED','Завершён']
+        ].map(([code,label]) => ({code,label})),
+        taskStatuses: [
+          ['TODO','К выполнению'],['IN_PROGRESS','В работе'],['BLOCKED','Заблокировано'],['DONE','Готово']
+        ].map(([code,label]) => ({code,label})),
+        get selectedProject() { return this.projects.find(item=>item.id===this.selectedProjectId) || null; },
         async api(path, options={}) {
           options.headers = {...(options.headers || {}), Authorization: `Bearer ${this.token}`};
           const response = await fetch(`/api/v1${path}`, options);
@@ -261,9 +390,10 @@
         async init() {
           if (!this.token) return;
           try {
-            [this.user, this.leads, this.calculations] = await Promise.all([
-              this.api('/auth/me'), this.api('/leads'), this.api('/calculations')
+            [this.user, this.leads, this.calculations, this.projects] = await Promise.all([
+              this.api('/auth/me'), this.api('/leads'), this.api('/calculations'), this.api('/projects')
             ]);
+            this.selectedProjectId = this.projects[0]?.id || null;
           }
           catch (error) { this.error = error.message; }
         },
@@ -344,6 +474,50 @@
             ['Пиковая мощность', `${r.peak_power_kw} кВт`],
             ['Цена продажи', this.money(r.suggested_sales_price)]
           ];
+        },
+        async createProject() {
+          try {
+            const payload = {
+              ...this.newProject,
+              lead_id:this.newProject.lead_id || null,
+              installation_date:this.newProject.installation_date || null
+            };
+            const project = await this.api('/projects', {
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+            });
+            this.projects.unshift(project); this.selectedProjectId=project.id;
+            this.newProject={name:'',installation_address:'',installation_date:'',lead_id:''};
+            this.showProjectForm=false;
+          } catch (error) { this.error=error.message; }
+        },
+        async updateProject(changes) {
+          const project=this.selectedProject, previous={...project};
+          Object.assign(project,changes);
+          try {
+            const updated=await this.api(`/projects/${project.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(changes)
+            });
+            Object.assign(project,updated);
+          } catch (error) { Object.assign(project,previous); this.error=error.message; }
+        },
+        async updateTask(task,changes) {
+          const previous={...task}; Object.assign(task,changes);
+          try {
+            const updated=await this.api(`/projects/${this.selectedProject.id}/tasks/${task.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(changes)
+            });
+            Object.assign(task,updated);
+          } catch (error) { Object.assign(task,previous); this.error=error.message; }
+        },
+        toggleTask(task) {
+          return this.updateTask(task,{status:task.status==='DONE'?'TODO':'DONE'});
+        },
+        projectProgress(project) {
+          if (!project?.tasks.length) return 0;
+          return Math.round(project.tasks.filter(task=>task.status==='DONE').length/project.tasks.length*100);
+        },
+        projectStatusLabel(code) {
+          return this.projectStatuses.find(item=>item.code===code)?.label || code;
         }
       }
     }
