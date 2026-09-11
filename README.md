@@ -13,7 +13,7 @@ inventory and project finance.
 - project lifecycle, standard installation checklist, assignments and progress tracking
 - SKU stock, reservations/transactions and minimum-stock alerts
 - project P&L workspace with planned/actual entries, cost breakdown, margin and invoices
-- escaped Jinja2 commercial proposal preview
+- database-backed HTML/PDF commercial proposals, invoices and acceptance acts
 - ARQ worker boundary for PDF generation and notifications
 - async SQLAlchemy, PostgreSQL, Alembic, Redis and Docker Compose
 - responsive dark dashboard shell and OpenAPI UI

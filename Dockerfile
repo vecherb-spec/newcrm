@@ -4,6 +4,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /srv/app
 
 COPY pyproject.toml .
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libharfbuzz-subset0 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir .
 COPY . .
 

@@ -28,22 +28,3 @@ def test_calculator_endpoint() -> None:
 def test_business_api_requires_authentication() -> None:
     response = client.get("/api/v1/leads")
     assert response.status_code == 401
-
-
-def test_quote_escapes_customer_data() -> None:
-    app.dependency_overrides[get_current_user] = lambda: object()
-    try:
-        response = client.post(
-            "/api/v1/documents/quote/preview",
-            json={
-                "number": "КП-1",
-                "customer": "<script>alert(1)</script>",
-                "project": "Экран",
-                "total": 100,
-            },
-        )
-        assert response.status_code == 200
-        assert "<script>" not in response.text
-        assert "&lt;script&gt;" in response.text
-    finally:
-        app.dependency_overrides.clear()

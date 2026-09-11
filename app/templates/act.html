@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Акт {{ number }}</title>
+  <style>
+    @page { size: A4; margin: 22mm; }
+    body { font: 14px Arial, sans-serif; color: #172033; line-height: 1.5; }
+    header { border-bottom: 3px solid #0891b2; padding-bottom: 18px; }
+    h1 { margin-top: 44px; text-align: center; font-size: 23px; }
+    .meta { text-align: center; color: #64748b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+    th, td { border: 1px solid #94a3b8; padding: 9px; }
+    th { background: #e2e8f0; text-align: left; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 90px; }
+  </style>
+</head>
+<body>
+  <header><strong>LED OPS</strong> · Инженерные светодиодные системы</header>
+  <h1>Акт выполненных работ № {{ number }}</h1>
+  <p class="meta">от {{ issued_on.strftime("%d.%m.%Y") }}</p>
+  <p>
+    Работы по проекту «<strong>{{ project.name }}</strong>»
+    {% if project.installation_address %}по адресу {{ project.installation_address }}{% endif %}
+    выполнены в согласованном объёме.
+  </p>
+  <table>
+    <thead><tr><th>Этап</th><th>Статус</th></tr></thead>
+    <tbody>
+      {% for task in project.tasks %}
+      <tr><td>{{ task.title }}</td><td>{{ "Выполнено" if task.status.value == "DONE" else "Не завершено" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>Заказчик претензий к объёму, качеству и срокам выполнения работ не имеет.</p>
+  <div class="signatures">
+    <span>Исполнитель ____________________</span>
+    <span>Заказчик ____________________</span>
+  </div>
+</body>
+</html>

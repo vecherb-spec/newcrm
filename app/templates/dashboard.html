@@ -208,10 +208,15 @@
               <div class="border-b border-slate-800 px-4 py-3 text-sm font-semibold">Последние версии</div>
               <div class="divide-y divide-slate-800">
                 <template x-for="item in calculations" :key="item.id">
-                  <button @click="loadCalculation(item)" class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-800/40">
-                    <span><span class="block text-sm" x-text="item.name"></span><span class="text-xs text-slate-600" x-text="new Date(item.created_at).toLocaleString('ru-RU')"></span></span>
+                  <div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/40">
+                    <button @click="loadCalculation(item)" class="min-w-0 flex-1 text-left">
+                      <span class="block truncate text-sm" x-text="item.name"></span>
+                      <span class="text-xs text-slate-600" x-text="new Date(item.created_at).toLocaleString('ru-RU')"></span>
+                    </button>
                     <span class="text-sm font-semibold text-emerald-400" x-text="money(item.suggested_sales_price)"></span>
-                  </button>
+                    <button @click="downloadDocument(`/documents/quotes/${item.id}.pdf`,`quote-${item.id}.pdf`)"
+                            class="rounded border border-slate-700 px-2 py-1 text-xs text-cyan-400">PDF КП</button>
+                  </div>
                 </template>
                 <p x-show="!calculations.length" class="p-5 text-center text-sm text-slate-600">Сохранённых расчётов пока нет</p>
               </div>
@@ -257,14 +262,18 @@
                   <h2 class="text-xl font-semibold" x-text="selectedProject?.name"></h2>
                   <p class="mt-1 text-sm text-slate-500" x-text="selectedProject?.installation_address || 'Адрес не указан'"></p>
                 </div>
-                <label class="text-xs text-slate-500">Стадия проекта
-                  <select :value="selectedProject?.status" @change="updateProject({status:$event.target.value})"
-                          class="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
-                    <template x-for="item in projectStatuses" :key="item.code">
-                      <option :value="item.code" x-text="item.label"></option>
-                    </template>
-                  </select>
-                </label>
+                <div class="flex items-end gap-3">
+                  <button @click="downloadDocument(`/documents/acts/${selectedProject.id}.pdf`,`act-${selectedProject.id}.pdf`)"
+                          class="rounded border border-slate-700 px-3 py-2 text-xs text-cyan-400">Скачать акт</button>
+                  <label class="text-xs text-slate-500">Стадия проекта
+                    <select :value="selectedProject?.status" @change="updateProject({status:$event.target.value})"
+                            class="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                      <template x-for="item in projectStatuses" :key="item.code">
+                        <option :value="item.code" x-text="item.label"></option>
+                      </template>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="mt-5 grid grid-cols-3 gap-3 text-sm">
                 <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Дата монтажа</p><p class="mt-1" x-text="selectedProject?.installation_date || 'Не назначена'"></p></div>
@@ -375,11 +384,15 @@
                 <template x-for="invoice in financeInvoices" :key="invoice.id">
                   <div class="p-4">
                     <div class="flex justify-between text-sm"><span x-text="invoice.number"></span><strong x-text="money(invoice.amount)"></strong></div>
-                    <select :value="invoice.status" @change="updateInvoice(invoice,$event.target.value)"
-                            class="mt-2 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs">
-                      <option value="draft">Черновик</option><option value="sent">Отправлен</option>
-                      <option value="paid">Оплачен</option><option value="cancelled">Отменён</option>
-                    </select>
+                    <div class="mt-2 flex gap-2">
+                      <select :value="invoice.status" @change="updateInvoice(invoice,$event.target.value)"
+                              class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs">
+                        <option value="draft">Черновик</option><option value="sent">Отправлен</option>
+                        <option value="paid">Оплачен</option><option value="cancelled">Отменён</option>
+                      </select>
+                      <button @click="downloadDocument(`/documents/invoices/${invoice.id}.pdf`,`invoice-${invoice.number}.pdf`)"
+                              class="rounded border border-slate-700 px-2 text-xs text-cyan-400">PDF</button>
+                    </div>
                   </div>
                 </template>
                 <p x-show="!financeInvoices.length" class="p-8 text-center text-sm text-slate-600">Счетов пока нет</p>
@@ -657,6 +670,15 @@
             });
             Object.assign(invoice,updated);
           } catch (error) { invoice.status=previous; this.error=error.message; }
+        },
+        async downloadDocument(path,filename) {
+          try {
+            const response=await fetch(`/api/v1${path}`,{headers:{Authorization:`Bearer ${this.token}`}});
+            if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка документа');
+            const url=URL.createObjectURL(await response.blob()), link=document.createElement('a');
+            link.href=url; link.download=filename; link.click();
+            setTimeout(()=>URL.revokeObjectURL(url),1000);
+          } catch (error) { this.error=error.message; }
         },
         financeMetrics() {
           const e=this.financeEconomics;

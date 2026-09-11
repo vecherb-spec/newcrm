@@ -35,7 +35,7 @@ def test_saved_calculation_is_recomputed_and_listed() -> None:
         response = client.post(
             "/api/v1/calculations",
             json={
-                "name": "Тестовая версия",
+                "name": "Тестовая версия <script>alert(1)</script>",
                 "parameters": {"width_m": 2, "height_m": 1, "pitch_mm": 2.5},
             },
         )
@@ -47,6 +47,16 @@ def test_saved_calculation_is_recomputed_and_listed() -> None:
         listing = client.get("/api/v1/calculations")
         assert listing.status_code == 200
         assert listing.json()[0]["id"] == saved["id"]
+
+        preview = client.get(f"/api/v1/documents/quotes/{saved['id']}")
+        assert preview.status_code == 200
+        assert "<script>" not in preview.text
+        assert "&lt;script&gt;" in preview.text
+
+        pdf = client.get(f"/api/v1/documents/quotes/{saved['id']}.pdf")
+        assert pdf.status_code == 200
+        assert pdf.headers["content-type"] == "application/pdf"
+        assert pdf.content.startswith(b"%PDF")
     finally:
         app.dependency_overrides.clear()
         asyncio.run(engine.dispose())
