@@ -8,6 +8,7 @@ from alembic import context
 from app.core.config import get_settings
 from app.core.database import Base
 from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.calculator import models as calculator_models  # noqa: F401
 from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.finance import models as finance_models  # noqa: F401
 from app.modules.inventory import models as inventory_models  # noqa: F401

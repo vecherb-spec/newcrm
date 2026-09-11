@@ -9,6 +9,7 @@ from app.integrations.webhooks import router as webhook_router
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.auth.router import get_current_user
 from app.modules.auth.router import router as auth_router
+from app.modules.calculator import models as calculator_models  # noqa: F401
 from app.modules.calculator.router import router as calculator_router
 
 # Import models so Alembic sees every table through Base.metadata.

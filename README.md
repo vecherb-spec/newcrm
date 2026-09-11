@@ -9,6 +9,7 @@ inventory and project finance.
 - JWT authentication, first-admin bootstrap and employee roles
 - Telegram webhook with secret verification and optional LLM parsing
 - deterministic, UI-independent LED screen calculation engine and BOM
+- interactive engineering workspace with versioned input, BOM and pricing snapshots
 - project execution, assignments and stage entities
 - SKU stock, reservations/transactions and minimum-stock alerts
 - project finance entries, invoices and planned/actual economics endpoint
