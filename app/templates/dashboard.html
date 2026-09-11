@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="ru" class="h-full bg-slate-950">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LED Ops</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="h-full text-slate-100" x-data="dashboard()" x-init="init()"
+      @keydown.window.meta.k.prevent="$refs.search?.focus()">
+  <div x-show="!token" class="grid min-h-full place-items-center bg-slate-950 p-6">
+    <form @submit.prevent="authenticate" class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+      <p class="text-xs font-bold tracking-[.3em] text-cyan-400">LED OPS</p>
+      <h1 class="mt-4 text-2xl font-semibold" x-text="bootstrap ? 'Первый запуск' : 'Вход'"></h1>
+      <p class="mt-2 text-sm text-slate-500" x-text="bootstrap ? 'Создайте первого администратора' : 'Введите данные сотрудника'"></p>
+      <input x-show="bootstrap" x-model="credentials.full_name" placeholder="Имя и фамилия"
+             class="mt-6 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-500">
+      <input x-model="credentials.email" type="email" required placeholder="Email"
+             class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-500">
+      <input x-model="credentials.password" type="password" required minlength="12" placeholder="Пароль (от 12 символов)"
+             class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-500">
+      <p x-show="error" x-text="error" class="mt-3 text-sm text-rose-400"></p>
+      <button class="mt-5 w-full rounded-lg bg-cyan-500 py-3 font-semibold text-slate-950 hover:bg-cyan-400"
+              x-text="bootstrap ? 'Создать администратора' : 'Войти'"></button>
+      <button type="button" @click="bootstrap=!bootstrap; error=''"
+              class="mt-4 w-full text-xs text-slate-500 hover:text-slate-300"
+              x-text="bootstrap ? 'Уже настроено? Войти' : 'Первый запуск'"></button>
+    </form>
+  </div>
+
+  <div x-cloak x-show="token" class="flex min-h-full">
+    <button x-show="error" @click="error=''"
+            class="fixed right-5 top-5 z-50 max-w-md rounded-lg border border-rose-700 bg-rose-950 px-4 py-3 text-left text-sm text-rose-200 shadow-xl"
+            x-text="error"></button>
+    <aside class="fixed inset-y-0 w-60 border-r border-slate-800 bg-slate-900 p-5">
+      <div class="mb-8 text-xl font-bold text-cyan-400">LED OPS</div>
+      <nav class="space-y-1 text-sm">
+        <button @click="section='pipeline'"
+                :class="section==='pipeline' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">CRM · Воронка</button>
+        <button @click="section='engineering'"
+                :class="section==='engineering' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">Инженерия</button>
+        <button @click="section='projects'"
+                :class="section==='projects' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">Проекты</button>
+        <button disabled class="block w-full rounded px-3 py-2 text-left text-slate-600">Склад</button>
+        <button @click="section='finance'; loadFinance()"
+                :class="section==='finance' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">Финансы</button>
+      </nav>
+      <div class="absolute bottom-5 left-5 right-5">
+        <p class="truncate text-xs text-slate-400" x-text="user?.full_name"></p>
+        <div class="mt-1 flex justify-between text-xs text-slate-600">
+          <span x-text="user?.role"></span>
+          <button @click="logout()" class="hover:text-rose-400">Выйти</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="ml-60 min-w-0 flex-1 p-6">
+      <div x-show="section==='pipeline'">
+      <header class="mb-6 flex items-center justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-widest text-cyan-500">Продажи</p>
+          <h1 class="text-2xl font-semibold">Воронка сделок</h1>
+        </div>
+        <div class="flex gap-3">
+          <input x-ref="search" x-model="query" placeholder="Поиск ⌘K"
+                 class="w-64 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm outline-none focus:border-cyan-500">
+          <button @click="showLeadForm=true" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Новый лид</button>
+        </div>
+      </header>
+
+      <section class="mb-5 grid grid-cols-3 gap-4">
+        <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <p class="text-xs text-slate-500">Всего лидов</p><p class="mt-1 text-2xl font-semibold" x-text="leads.length"></p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <p class="text-xs text-slate-500">Новые</p><p class="mt-1 text-2xl font-semibold" x-text="byStatus('NEW').length"></p>
+        </article>
+        <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <p class="text-xs text-slate-500">Успешные</p><p class="mt-1 text-2xl font-semibold text-emerald-400" x-text="byStatus('CLOSED_WON').length"></p>
+        </article>
+      </section>
+
+      <section class="flex gap-3 overflow-x-auto pb-5">
+        <template x-for="status in statuses" :key="status.code">
+          <div class="w-64 shrink-0 rounded-xl border border-slate-800 bg-slate-900/60">
+            <div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+              <span class="text-xs font-semibold uppercase" x-text="status.label"></span>
+              <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs" x-text="byStatus(status.code).length"></span>
+            </div>
+            <div class="min-h-40 space-y-2 p-2">
+              <template x-for="lead in byStatus(status.code)" :key="`${lead.id}-${lead.status}`">
+                <article class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                  <p class="text-sm font-medium" x-text="lead.title"></p>
+                  <p class="mt-2 text-xs text-slate-500" x-text="lead.source"></p>
+                  <select x-model="lead.status" @focus="lead._previousStatus=lead.status"
+                          @change="$nextTick(() => moveLead(lead))"
+                          class="mt-3 w-full rounded border border-slate-800 bg-slate-900 p-1 text-xs text-slate-400">
+                    <template x-for="option in statuses"><option :value="option.code" x-text="option.label"></option></template>
+                  </select>
+                </article>
+              </template>
+            </div>
+          </div>
+        </template>
+      </section>
+      </div>
+
+      <div x-cloak x-show="section==='engineering'">
+        <header class="mb-6">
+          <p class="text-xs uppercase tracking-widest text-cyan-500">Инженерия</p>
+          <h1 class="text-2xl font-semibold">Расчёт LED-экрана</h1>
+        </header>
+        <div class="grid grid-cols-[380px_minmax(0,1fr)] gap-5">
+          <form @submit.prevent="calculateScreen" class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h2 class="text-sm font-semibold">Исходные параметры</h2>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <label class="text-xs text-slate-500">Ширина, м
+                <input x-model.number="calculationInput.width_m" type="number" step="0.01" min="0.01" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Высота, м
+                <input x-model.number="calculationInput.height_m" type="number" step="0.01" min="0.01" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Шаг пикселя, мм
+                <input x-model.number="calculationInput.pitch_mm" type="number" step="0.1" min="0.5" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Яркость, нит
+                <input x-model.number="calculationInput.brightness_nits" type="number" step="100" min="400" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Кабинет, ширина мм
+                <input x-model.number="calculationInput.cabinet_width_mm" type="number" step="1" min="1" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Кабинет, высота мм
+                <input x-model.number="calculationInput.cabinet_height_mm" type="number" step="1" min="1" required
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Резерв БП, %
+                <input x-model.number="calculationInput.power_redundancy_percent" type="number" step="1" min="0" max="100"
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+              <label class="text-xs text-slate-500">Целевая маржа, %
+                <input x-model.number="calculationInput.target_margin_percent" type="number" step="1" min="0" max="99"
+                       class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+              </label>
+            </div>
+            <button class="mt-5 w-full rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-slate-950">
+              Рассчитать
+            </button>
+          </form>
+
+          <div class="min-w-0 space-y-5">
+            <div x-show="!calculationResult" class="grid min-h-64 place-items-center rounded-xl border border-dashed border-slate-800 text-sm text-slate-600">
+              Заполните параметры и выполните расчёт
+            </div>
+            <template x-if="calculationResult">
+              <div class="space-y-5">
+                <section class="grid grid-cols-4 gap-3">
+                  <template x-for="[label,value] in resultMetrics()" :key="label">
+                    <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <p class="text-xs text-slate-500" x-text="label"></p>
+                      <p class="mt-1 text-lg font-semibold" x-text="value"></p>
+                    </article>
+                  </template>
+                </section>
+                <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+                  <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/60 text-xs text-slate-400">
+                      <tr><th class="px-4 py-3">BOM</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="line in calculationResult.bom" :key="line.sku">
+                        <tr class="border-t border-slate-800">
+                          <td class="px-4 py-3"><span x-text="line.name"></span><span class="ml-2 text-xs text-slate-600" x-text="line.sku"></span></td>
+                          <td x-text="`${line.quantity} ${line.unit}`"></td>
+                          <td x-text="money(line.unit_cost)"></td>
+                          <td class="font-medium" x-text="money(line.total_cost)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </section>
+                <form @submit.prevent="saveCalculation" class="flex items-end gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <label class="flex-1 text-xs text-slate-500">Название версии
+                    <input x-model="calculationName" required minlength="2" placeholder="Например: Экран ТЦ — версия 1"
+                           class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                  </label>
+                  <label class="w-52 text-xs text-slate-500">Лид
+                    <select x-model="calculationLeadId" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                      <option value="">Без привязки</option>
+                      <template x-for="lead in leads" :key="lead.id"><option :value="lead.id" x-text="lead.title"></option></template>
+                    </select>
+                  </label>
+                  <button class="rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">Сохранить версию</button>
+                </form>
+              </div>
+            </template>
+            <section class="rounded-xl border border-slate-800 bg-slate-900">
+              <div class="border-b border-slate-800 px-4 py-3 text-sm font-semibold">Последние версии</div>
+              <div class="divide-y divide-slate-800">
+                <template x-for="item in calculations" :key="item.id">
+                  <div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/40">
+                    <button @click="loadCalculation(item)" class="min-w-0 flex-1 text-left">
+                      <span class="block truncate text-sm" x-text="item.name"></span>
+                      <span class="text-xs text-slate-600" x-text="new Date(item.created_at).toLocaleString('ru-RU')"></span>
+                    </button>
+                    <span class="text-sm font-semibold text-emerald-400" x-text="money(item.suggested_sales_price)"></span>
+                    <button @click="downloadDocument(`/documents/quotes/${item.id}.pdf`,`quote-${item.id}.pdf`)"
+                            class="rounded border border-slate-700 px-2 py-1 text-xs text-cyan-400">PDF КП</button>
+                  </div>
+                </template>
+                <p x-show="!calculations.length" class="p-5 text-center text-sm text-slate-600">Сохранённых расчётов пока нет</p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div x-cloak x-show="section==='projects'">
+        <header class="mb-6 flex items-center justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-cyan-500">Исполнение</p>
+            <h1 class="text-2xl font-semibold">Проекты и монтажи</h1>
+          </div>
+          <button @click="showProjectForm=true" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Новый проект</button>
+        </header>
+        <div class="grid grid-cols-[300px_minmax(0,1fr)] gap-5">
+          <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+            <div class="border-b border-slate-800 px-4 py-3 text-sm font-semibold">Все проекты</div>
+            <div class="divide-y divide-slate-800">
+              <template x-for="project in projects" :key="project.id">
+                <button @click="selectedProjectId=project.id"
+                        :class="selectedProjectId===project.id ? 'bg-cyan-500/10' : ''"
+                        class="w-full px-4 py-3 text-left hover:bg-slate-800/50">
+                  <p class="truncate text-sm font-medium" x-text="project.name"></p>
+                  <div class="mt-2 flex justify-between text-xs text-slate-500">
+                    <span x-text="projectStatusLabel(project.status)"></span>
+                    <span x-text="`${projectProgress(project)}%`"></span>
+                  </div>
+                  <div class="mt-2 h-1 rounded bg-slate-800">
+                    <div class="h-1 rounded bg-emerald-500" :style="`width:${projectProgress(project)}%`"></div>
+                  </div>
+                </button>
+              </template>
+              <p x-show="!projects.length" class="p-6 text-center text-sm text-slate-600">Проектов пока нет</p>
+            </div>
+          </section>
+
+          <section x-show="selectedProject" class="min-w-0 space-y-4">
+            <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <div class="flex items-start justify-between gap-5">
+                <div>
+                  <h2 class="text-xl font-semibold" x-text="selectedProject?.name"></h2>
+                  <p class="mt-1 text-sm text-slate-500" x-text="selectedProject?.installation_address || 'Адрес не указан'"></p>
+                </div>
+                <div class="flex items-end gap-3">
+                  <button @click="downloadDocument(`/documents/acts/${selectedProject.id}.pdf`,`act-${selectedProject.id}.pdf`)"
+                          class="rounded border border-slate-700 px-3 py-2 text-xs text-cyan-400">Скачать акт</button>
+                  <label class="text-xs text-slate-500">Стадия проекта
+                    <select :value="selectedProject?.status" @change="updateProject({status:$event.target.value})"
+                            class="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                      <template x-for="item in projectStatuses" :key="item.code">
+                        <option :value="item.code" x-text="item.label"></option>
+                      </template>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="mt-5 grid grid-cols-3 gap-3 text-sm">
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Дата монтажа</p><p class="mt-1" x-text="selectedProject?.installation_date || 'Не назначена'"></p></div>
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Доставка</p><p class="mt-1" x-text="selectedProject?.delivery_status"></p></div>
+                <div class="rounded-lg bg-slate-950 p-3"><p class="text-xs text-slate-600">Готовность</p><p class="mt-1" x-text="`${projectProgress(selectedProject)}%`"></p></div>
+              </div>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                <h3 class="text-sm font-semibold">Чек-лист исполнения</h3>
+                <span class="text-xs text-slate-500" x-text="`${selectedProject?.tasks.filter(t=>t.status==='DONE').length || 0} / ${selectedProject?.tasks.length || 0}`"></span>
+              </div>
+              <div class="divide-y divide-slate-800">
+                <template x-for="task in selectedProject?.tasks || []" :key="task.id">
+                  <div class="grid grid-cols-[minmax(0,1fr)_180px_140px] items-center gap-3 px-5 py-3">
+                    <div class="flex items-center gap-3">
+                      <button @click="toggleTask(task)"
+                              :class="task.status==='DONE' ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'"
+                              class="grid h-5 w-5 shrink-0 place-items-center rounded border text-xs text-slate-950"
+                              x-text="task.status==='DONE' ? '✓' : ''"></button>
+                      <span :class="task.status==='DONE' ? 'line-through text-slate-600' : ''" class="text-sm" x-text="task.title"></span>
+                    </div>
+                    <input :value="task.assignee || ''" @change="updateTask(task,{assignee:$event.target.value || null})"
+                           placeholder="Ответственный"
+                           class="rounded border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs">
+                    <select :value="task.status" @change="updateTask(task,{status:$event.target.value})"
+                            class="rounded border border-slate-800 bg-slate-950 px-2 py-1.5 text-xs">
+                      <template x-for="item in taskStatuses" :key="item.code"><option :value="item.code" x-text="item.label"></option></template>
+                    </select>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </section>
+          <div x-show="!selectedProject" class="grid min-h-64 place-items-center rounded-xl border border-dashed border-slate-800 text-sm text-slate-600">
+            Выберите проект или создайте новый
+          </div>
+        </div>
+      </div>
+
+      <div x-cloak x-show="section==='finance'">
+        <header class="mb-6 flex items-end justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-cyan-500">Экономика</p>
+            <h1 class="text-2xl font-semibold">Финансы проекта</h1>
+          </div>
+          <label class="w-80 text-xs text-slate-500">Проект
+            <select x-model="selectedFinanceProjectId" @change="loadFinance()"
+                    class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+              <option value="">Выберите проект</option>
+              <template x-for="project in projects" :key="project.id"><option :value="project.id" x-text="project.name"></option></template>
+            </select>
+          </label>
+        </header>
+
+        <div x-show="financeEconomics" class="space-y-5">
+          <section class="grid grid-cols-5 gap-3">
+            <template x-for="[label,value,color] in financeMetrics()" :key="label">
+              <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <p class="text-xs text-slate-500" x-text="label"></p>
+                <p class="mt-1 text-lg font-semibold" :class="color" x-text="value"></p>
+              </article>
+            </template>
+          </section>
+
+          <div class="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
+            <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="border-b border-slate-800 px-5 py-4 text-sm font-semibold">Журнал операций</div>
+              <form @submit.prevent="createFinanceEntry" class="grid grid-cols-[150px_130px_1fr_auto] gap-2 border-b border-slate-800 p-3">
+                <select x-model="newFinanceEntry.type" class="rounded border border-slate-700 bg-slate-950 px-2 text-xs">
+                  <template x-for="item in financeTypes" :key="item.code"><option :value="item.code" x-text="item.label"></option></template>
+                </select>
+                <input x-model.number="newFinanceEntry.amount" type="number" min="0.01" step="0.01" required placeholder="Сумма"
+                       class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                <input x-model="newFinanceEntry.description" placeholder="Описание"
+                       class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                <button class="rounded bg-cyan-500 px-3 text-sm font-semibold text-slate-950">Добавить</button>
+                <label class="col-span-4 flex items-center gap-2 text-xs text-slate-500">
+                  <input x-model="newFinanceEntry.is_planned" type="checkbox"> Плановая операция
+                </label>
+              </form>
+              <div class="divide-y divide-slate-800">
+                <template x-for="entry in financeEntries" :key="entry.id">
+                  <div class="grid grid-cols-[160px_1fr_130px] items-center px-5 py-3 text-sm">
+                    <span class="text-xs text-slate-500" x-text="financeTypeLabel(entry.type)"></span>
+                    <span><span x-text="entry.description || 'Без описания'"></span><span x-show="entry.is_planned" class="ml-2 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">план</span></span>
+                    <span class="text-right font-medium" :class="entry.type==='REVENUE'?'text-emerald-400':'text-rose-300'"
+                          x-text="`${entry.type==='REVENUE'?'+':'−'} ${money(entry.amount)}`"></span>
+                  </div>
+                </template>
+                <p x-show="!financeEntries.length" class="p-8 text-center text-sm text-slate-600">Операций пока нет</p>
+              </div>
+            </section>
+
+            <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="border-b border-slate-800 px-5 py-4 text-sm font-semibold">Счета</div>
+              <form @submit.prevent="createInvoice" class="space-y-2 border-b border-slate-800 p-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <input x-model="newInvoice.number" required placeholder="Номер счёта"
+                         class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                  <input x-model.number="newInvoice.amount" type="number" min="0.01" step="0.01" required placeholder="Сумма"
+                         class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                </div>
+                <button class="w-full rounded bg-slate-700 py-2 text-sm hover:bg-slate-600">Создать счёт</button>
+              </form>
+              <div class="divide-y divide-slate-800">
+                <template x-for="invoice in financeInvoices" :key="invoice.id">
+                  <div class="p-4">
+                    <div class="flex justify-between text-sm"><span x-text="invoice.number"></span><strong x-text="money(invoice.amount)"></strong></div>
+                    <div class="mt-2 flex gap-2">
+                      <select :value="invoice.status" @change="updateInvoice(invoice,$event.target.value)"
+                              class="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs">
+                        <option value="draft">Черновик</option><option value="sent">Отправлен</option>
+                        <option value="paid">Оплачен</option><option value="cancelled">Отменён</option>
+                      </select>
+                      <button @click="downloadDocument(`/documents/invoices/${invoice.id}.pdf`,`invoice-${invoice.number}.pdf`)"
+                              class="rounded border border-slate-700 px-2 text-xs text-cyan-400">PDF</button>
+                    </div>
+                  </div>
+                </template>
+                <p x-show="!financeInvoices.length" class="p-8 text-center text-sm text-slate-600">Счетов пока нет</p>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div x-show="!selectedFinanceProjectId" class="grid min-h-64 place-items-center rounded-xl border border-dashed border-slate-800 text-sm text-slate-600">
+          Выберите проект для просмотра экономики
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div x-cloak x-show="showLeadForm" class="fixed inset-0 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showLeadForm=false">
+    <form @submit.prevent="createLead" class="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <h2 class="text-lg font-semibold">Новый лид</h2>
+      <input x-model="newLead.title" required minlength="2" placeholder="Название / клиент"
+             class="mt-5 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
+      <textarea x-model="newLead.raw_text" placeholder="Запрос клиента" rows="4"
+                class="mt-3 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2"></textarea>
+      <div class="mt-5 flex justify-end gap-3">
+        <button type="button" @click="showLeadForm=false" class="px-4 py-2 text-sm text-slate-400">Отмена</button>
+        <button class="rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Создать</button>
+      </div>
+    </form>
+  </div>
+
+  <div x-cloak x-show="showProjectForm" class="fixed inset-0 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showProjectForm=false">
+    <form @submit.prevent="createProject" class="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <h2 class="text-lg font-semibold">Новый проект</h2>
+      <input x-model="newProject.name" required minlength="2" placeholder="Название проекта"
+             class="mt-5 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
+      <input x-model="newProject.installation_address" placeholder="Адрес монтажа"
+             class="mt-3 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
+      <label class="mt-3 block text-xs text-slate-500">Дата монтажа
+        <input x-model="newProject.installation_date" type="date"
+               class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100">
+      </label>
+      <label class="mt-3 block text-xs text-slate-500">Выигранный лид
+        <select x-model="newProject.lead_id" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100">
+          <option value="">Без привязки</option>
+          <template x-for="lead in leads.filter(item=>item.status==='CLOSED_WON')" :key="lead.id">
+            <option :value="lead.id" x-text="lead.title"></option>
+          </template>
+        </select>
+      </label>
+      <div class="mt-5 flex justify-end gap-3">
+        <button type="button" @click="showProjectForm=false" class="px-4 py-2 text-sm text-slate-400">Отмена</button>
+        <button class="rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Создать с чек-листом</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    function dashboard() {
+      return {
+        token: localStorage.getItem('ledops_token') || '',
+        user: null, leads: [], query: '', error: '', bootstrap: false,
+        showLeadForm: false, showProjectForm: false,
+        section: 'pipeline', calculations: [], calculationResult: null,
+        projects: [], selectedProjectId: null,
+        selectedFinanceProjectId: null, financeEconomics: null,
+        financeEntries: [], financeInvoices: [],
+        calculationName: '', calculationLeadId: '',
+        calculationInput: {
+          width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000,
+          cabinet_width_mm: 500, cabinet_height_mm: 500,
+          power_redundancy_percent: 15, target_margin_percent: 30
+        },
+        credentials: {email: '', password: '', full_name: ''},
+        newLead: {title: '', raw_text: '', source: 'manual'},
+        newProject: {name:'',installation_address:'',installation_date:'',lead_id:''},
+        newFinanceEntry: {type:'REVENUE',amount:null,description:'',is_planned:false},
+        newInvoice: {number:'',amount:null},
+        statuses: [
+          ['NEW','Новые'],['QUALIFICATION','Квалификация'],['CALCULATING','Расчёт'],
+          ['PROPOSAL_SENT','КП отправлено'],['CONTRACT_SIGNING','Договор'],
+          ['IN_PROJECT','В проекте'],['CLOSED_WON','Успех'],['CLOSED_LOST','Отказ']
+        ].map(([code,label]) => ({code,label})),
+        projectStatuses: [
+          ['PLANNING','Планирование'],['PROCUREMENT','Закупка'],['PRODUCTION','Производство'],
+          ['INSTALLATION','Монтаж'],['COMMISSIONING','Пусконаладка'],['COMPLETED','Завершён']
+        ].map(([code,label]) => ({code,label})),
+        taskStatuses: [
+          ['TODO','К выполнению'],['IN_PROGRESS','В работе'],['BLOCKED','Заблокировано'],['DONE','Готово']
+        ].map(([code,label]) => ({code,label})),
+        financeTypes: [
+          ['REVENUE','Выручка'],['MATERIAL','Материалы'],['PAYROLL','Оплата труда'],
+          ['DELIVERY','Доставка'],['TRAVEL','Командировка'],['RENTAL','Аренда'],['OTHER','Прочее']
+        ].map(([code,label]) => ({code,label})),
+        get selectedProject() { return this.projects.find(item=>item.id===this.selectedProjectId) || null; },
+        async api(path, options={}) {
+          options.headers = {...(options.headers || {}), Authorization: `Bearer ${this.token}`};
+          const response = await fetch(`/api/v1${path}`, options);
+          if (response.status === 401) { this.logout(); throw new Error('Требуется вход'); }
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.detail || 'Ошибка запроса');
+          }
+          return response.json();
+        },
+        async init() {
+          if (!this.token) return;
+          try {
+            [this.user, this.leads, this.calculations, this.projects] = await Promise.all([
+              this.api('/auth/me'), this.api('/leads'), this.api('/calculations'), this.api('/projects')
+            ]);
+            this.selectedProjectId = this.projects[0]?.id || null;
+            this.selectedFinanceProjectId = this.projects[0]?.id || null;
+          }
+          catch (error) { this.error = error.message; }
+        },
+        async authenticate() {
+          this.error = '';
+          try {
+            if (this.bootstrap) {
+              await fetch('/api/v1/auth/bootstrap', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(this.credentials)
+              }).then(async r => { if (!r.ok) throw new Error((await r.json()).detail); });
+            }
+            const body = new URLSearchParams({username: this.credentials.email, password: this.credentials.password});
+            const response = await fetch('/api/v1/auth/token', {method: 'POST', body});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail);
+            this.token = data.access_token; localStorage.setItem('ledops_token', this.token);
+            await this.init();
+          } catch (error) { this.error = error.message; }
+        },
+        logout() { localStorage.removeItem('ledops_token'); this.token = ''; this.user = null; },
+        byStatus(status) {
+          const q = this.query.toLocaleLowerCase();
+          return this.leads.filter(l => l.status === status && l.title.toLocaleLowerCase().includes(q));
+        },
+        async createLead() {
+          try {
+            const lead = await this.api('/leads', {
+              method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.newLead)
+            });
+            this.leads.unshift(lead); this.newLead = {title:'',raw_text:'',source:'manual'}; this.showLeadForm=false;
+          } catch (error) { this.error = error.message; }
+        },
+        async moveLead(lead) {
+          const previous = lead._previousStatus, status = lead.status;
+          try {
+            await this.api(`/leads/${lead.id}`, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+            lead._previousStatus = status;
+          } catch (error) { lead.status = previous; this.error = error.message; }
+        },
+        async calculateScreen() {
+          try {
+            this.calculationResult = await this.api('/calculations/screen', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body:JSON.stringify(this.calculationInput)
+            });
+          } catch (error) { this.error = error.message; }
+        },
+        async saveCalculation() {
+          try {
+            const saved = await this.api('/calculations', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({
+                name:this.calculationName,
+                lead_id:this.calculationLeadId || null,
+                parameters:this.calculationInput
+              })
+            });
+            this.calculations.unshift(saved);
+            this.calculationName = '';
+          } catch (error) { this.error = error.message; }
+        },
+        loadCalculation(item) {
+          this.calculationInput = JSON.parse(JSON.stringify(item.parameters));
+          this.calculationResult = JSON.parse(JSON.stringify(item.result));
+          this.calculationLeadId = item.lead_id || '';
+          this.calculationName = `${item.name} — копия`;
+        },
+        money(value) {
+          return new Intl.NumberFormat('ru-RU', {style:'currency',currency:'RUB',maximumFractionDigits:0}).format(value);
+        },
+        resultMetrics() {
+          const r = this.calculationResult;
+          if (!r) return [];
+          return [
+            ['Кабинеты', `${r.cabinet_columns} × ${r.cabinet_rows} = ${r.cabinet_count}`],
+            ['Разрешение', `${r.resolution_width} × ${r.resolution_height}`],
+            ['Пиковая мощность', `${r.peak_power_kw} кВт`],
+            ['Цена продажи', this.money(r.suggested_sales_price)]
+          ];
+        },
+        async createProject() {
+          try {
+            const payload = {
+              ...this.newProject,
+              lead_id:this.newProject.lead_id || null,
+              installation_date:this.newProject.installation_date || null
+            };
+            const project = await this.api('/projects', {
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+            });
+            this.projects.unshift(project); this.selectedProjectId=project.id;
+            this.newProject={name:'',installation_address:'',installation_date:'',lead_id:''};
+            this.showProjectForm=false;
+          } catch (error) { this.error=error.message; }
+        },
+        async updateProject(changes) {
+          const project=this.selectedProject, previous={...project};
+          Object.assign(project,changes);
+          try {
+            const updated=await this.api(`/projects/${project.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(changes)
+            });
+            Object.assign(project,updated);
+          } catch (error) { Object.assign(project,previous); this.error=error.message; }
+        },
+        async updateTask(task,changes) {
+          const previous={...task}; Object.assign(task,changes);
+          try {
+            const updated=await this.api(`/projects/${this.selectedProject.id}/tasks/${task.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(changes)
+            });
+            Object.assign(task,updated);
+          } catch (error) { Object.assign(task,previous); this.error=error.message; }
+        },
+        toggleTask(task) {
+          return this.updateTask(task,{status:task.status==='DONE'?'TODO':'DONE'});
+        },
+        projectProgress(project) {
+          if (!project?.tasks.length) return 0;
+          return Math.round(project.tasks.filter(task=>task.status==='DONE').length/project.tasks.length*100);
+        },
+        projectStatusLabel(code) {
+          return this.projectStatuses.find(item=>item.code===code)?.label || code;
+        },
+        financeTypeLabel(code) {
+          return this.financeTypes.find(item=>item.code===code)?.label || code;
+        },
+        async loadFinance() {
+          if (!this.selectedFinanceProjectId) {
+            this.financeEconomics=null; this.financeEntries=[]; this.financeInvoices=[]; return;
+          }
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            [this.financeEconomics,this.financeEntries,this.financeInvoices]=await Promise.all([
+              this.api(`${root}/economics`),this.api(`${root}/entries`),this.api(`${root}/invoices`)
+            ]);
+          } catch (error) { this.error=error.message; }
+        },
+        async createFinanceEntry() {
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            const entry=await this.api(`${root}/entries`,{
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.newFinanceEntry)
+            });
+            this.financeEntries.unshift(entry);
+            this.newFinanceEntry={type:'REVENUE',amount:null,description:'',is_planned:false};
+            this.financeEconomics=await this.api(`${root}/economics`);
+          } catch (error) { this.error=error.message; }
+        },
+        async createInvoice() {
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            const invoice=await this.api(`${root}/invoices`,{
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.newInvoice)
+            });
+            this.financeInvoices.unshift(invoice); this.newInvoice={number:'',amount:null};
+          } catch (error) { this.error=error.message; }
+        },
+        async updateInvoice(invoice,status) {
+          const previous=invoice.status; invoice.status=status;
+          try {
+            const updated=await this.api(`/finance/invoices/${invoice.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})
+            });
+            Object.assign(invoice,updated);
+          } catch (error) { invoice.status=previous; this.error=error.message; }
+        },
+        async downloadDocument(path,filename) {
+          try {
+            const response=await fetch(`/api/v1${path}`,{headers:{Authorization:`Bearer ${this.token}`}});
+            if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка документа');
+            const url=URL.createObjectURL(await response.blob()), link=document.createElement('a');
+            link.href=url; link.download=filename; link.click();
+            setTimeout(()=>URL.revokeObjectURL(url),1000);
+          } catch (error) { this.error=error.message; }
+        },
+        financeMetrics() {
+          const e=this.financeEconomics;
+          if (!e) return [];
+          return [
+            ['План выручки',this.money(e.planned_revenue),''],
+            ['Факт выручки',this.money(e.actual_revenue),'text-emerald-400'],
+            ['План затрат',this.money(e.planned_costs),''],
+            ['Факт затрат',this.money(e.actual_costs),'text-rose-300'],
+            ['Валовая маржа',`${this.money(e.gross_margin)} · ${e.gross_margin_percent ?? '—'}%`,e.gross_margin>=0?'text-emerald-400':'text-rose-400']
+          ];
+        }
+      }
+    }
+  </script>
+</body>
+</html>

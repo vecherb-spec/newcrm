@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Коммерческое предложение {{ number }}</title>
+  <style>
+    @page { size: A4; margin: 22mm 18mm; @bottom-right { content: "Страница " counter(page) " из " counter(pages); color: #64748b; font-size: 9px; } }
+    body { font: 13px Arial, sans-serif; color: #172033; }
+    header { border-bottom: 3px solid #0891b2; padding-bottom: 18px; }
+    h1 { margin-top: 38px; font-size: 24px; }
+    h2 { margin-top: 28px; font-size: 16px; }
+    .meta { color: #64748b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th { background: #e2e8f0; text-align: left; }
+    th, td { border-bottom: 1px solid #cbd5e1; padding: 8px; }
+    td:nth-child(n+2), th:nth-child(n+2) { text-align: right; }
+    .total { margin-top: 40px; padding: 20px; background: #ecfeff; font-size: 22px; }
+    footer { margin-top: 60px; color: #64748b; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header><strong>LED OPS</strong> · Инженерные светодиодные системы</header>
+  <h1>Коммерческое предложение № {{ number }}</h1>
+  <p class="meta">Дата: {{ issued_on.strftime("%d.%m.%Y") }}</p>
+  <p>Заказчик: <strong>{{ customer }}</strong></p>
+  <p>Проект: {{ project }}</p>
+  <h2>Параметры экрана</h2>
+  <p>
+    Размер {{ parameters.width_m }} × {{ parameters.height_m }} м ·
+    шаг пикселя P{{ parameters.pitch_mm }} ·
+    разрешение {{ result.resolution_width }} × {{ result.resolution_height }} px
+  </p>
+  <h2>Спецификация</h2>
+  <table>
+    <thead><tr><th>Позиция</th><th>Количество</th><th>Цена</th><th>Сумма</th></tr></thead>
+    <tbody>
+      {% for line in result.bom %}
+      <tr>
+        <td>{{ line.name }}</td>
+        <td>{{ line.quantity }} {{ line.unit }}</td>
+        <td>{{ "{:,.2f}".format(line.unit_cost) }}</td>
+        <td>{{ "{:,.2f}".format(line.total_cost) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="total">Итого: <strong>{{ "{:,.2f}".format(total) }} {{ currency }}</strong></div>
+  <footer>Предложение действительно 10 календарных дней. Документ сформирован системой LED Ops.</footer>
+</body>
+</html>
