@@ -12,7 +12,7 @@ inventory and project finance.
 - interactive engineering workspace with versioned input, BOM and pricing snapshots
 - project lifecycle, standard installation checklist, assignments and progress tracking
 - SKU stock, reservations/transactions and minimum-stock alerts
-- project finance entries, invoices and planned/actual economics endpoint
+- project P&L workspace with planned/actual entries, cost breakdown, margin and invoices
 - escaped Jinja2 commercial proposal preview
 - ARQ worker boundary for PDF generation and notifications
 - async SQLAlchemy, PostgreSQL, Alembic, Redis and Docker Compose

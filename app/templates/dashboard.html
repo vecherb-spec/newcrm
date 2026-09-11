@@ -46,9 +46,10 @@
         <button @click="section='projects'"
                 :class="section==='projects' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
                 class="block w-full rounded px-3 py-2 text-left">Проекты</button>
-        <template x-for="item in ['Склад','Финансы']">
-          <button disabled class="block w-full rounded px-3 py-2 text-left text-slate-600" x-text="item"></button>
-        </template>
+        <button disabled class="block w-full rounded px-3 py-2 text-left text-slate-600">Склад</button>
+        <button @click="section='finance'; loadFinance()"
+                :class="section==='finance' ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400'"
+                class="block w-full rounded px-3 py-2 text-left">Финансы</button>
       </nav>
       <div class="absolute bottom-5 left-5 right-5">
         <p class="truncate text-xs text-slate-400" x-text="user?.full_name"></p>
@@ -304,6 +305,92 @@
           </div>
         </div>
       </div>
+
+      <div x-cloak x-show="section==='finance'">
+        <header class="mb-6 flex items-end justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-cyan-500">Экономика</p>
+            <h1 class="text-2xl font-semibold">Финансы проекта</h1>
+          </div>
+          <label class="w-80 text-xs text-slate-500">Проект
+            <select x-model="selectedFinanceProjectId" @change="loadFinance()"
+                    class="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+              <option value="">Выберите проект</option>
+              <template x-for="project in projects" :key="project.id"><option :value="project.id" x-text="project.name"></option></template>
+            </select>
+          </label>
+        </header>
+
+        <div x-show="financeEconomics" class="space-y-5">
+          <section class="grid grid-cols-5 gap-3">
+            <template x-for="[label,value,color] in financeMetrics()" :key="label">
+              <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <p class="text-xs text-slate-500" x-text="label"></p>
+                <p class="mt-1 text-lg font-semibold" :class="color" x-text="value"></p>
+              </article>
+            </template>
+          </section>
+
+          <div class="grid grid-cols-[minmax(0,1fr)_360px] gap-5">
+            <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="border-b border-slate-800 px-5 py-4 text-sm font-semibold">Журнал операций</div>
+              <form @submit.prevent="createFinanceEntry" class="grid grid-cols-[150px_130px_1fr_auto] gap-2 border-b border-slate-800 p-3">
+                <select x-model="newFinanceEntry.type" class="rounded border border-slate-700 bg-slate-950 px-2 text-xs">
+                  <template x-for="item in financeTypes" :key="item.code"><option :value="item.code" x-text="item.label"></option></template>
+                </select>
+                <input x-model.number="newFinanceEntry.amount" type="number" min="0.01" step="0.01" required placeholder="Сумма"
+                       class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                <input x-model="newFinanceEntry.description" placeholder="Описание"
+                       class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                <button class="rounded bg-cyan-500 px-3 text-sm font-semibold text-slate-950">Добавить</button>
+                <label class="col-span-4 flex items-center gap-2 text-xs text-slate-500">
+                  <input x-model="newFinanceEntry.is_planned" type="checkbox"> Плановая операция
+                </label>
+              </form>
+              <div class="divide-y divide-slate-800">
+                <template x-for="entry in financeEntries" :key="entry.id">
+                  <div class="grid grid-cols-[160px_1fr_130px] items-center px-5 py-3 text-sm">
+                    <span class="text-xs text-slate-500" x-text="financeTypeLabel(entry.type)"></span>
+                    <span><span x-text="entry.description || 'Без описания'"></span><span x-show="entry.is_planned" class="ml-2 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">план</span></span>
+                    <span class="text-right font-medium" :class="entry.type==='REVENUE'?'text-emerald-400':'text-rose-300'"
+                          x-text="`${entry.type==='REVENUE'?'+':'−'} ${money(entry.amount)}`"></span>
+                  </div>
+                </template>
+                <p x-show="!financeEntries.length" class="p-8 text-center text-sm text-slate-600">Операций пока нет</p>
+              </div>
+            </section>
+
+            <section class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+              <div class="border-b border-slate-800 px-5 py-4 text-sm font-semibold">Счета</div>
+              <form @submit.prevent="createInvoice" class="space-y-2 border-b border-slate-800 p-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <input x-model="newInvoice.number" required placeholder="Номер счёта"
+                         class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                  <input x-model.number="newInvoice.amount" type="number" min="0.01" step="0.01" required placeholder="Сумма"
+                         class="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                </div>
+                <button class="w-full rounded bg-slate-700 py-2 text-sm hover:bg-slate-600">Создать счёт</button>
+              </form>
+              <div class="divide-y divide-slate-800">
+                <template x-for="invoice in financeInvoices" :key="invoice.id">
+                  <div class="p-4">
+                    <div class="flex justify-between text-sm"><span x-text="invoice.number"></span><strong x-text="money(invoice.amount)"></strong></div>
+                    <select :value="invoice.status" @change="updateInvoice(invoice,$event.target.value)"
+                            class="mt-2 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs">
+                      <option value="draft">Черновик</option><option value="sent">Отправлен</option>
+                      <option value="paid">Оплачен</option><option value="cancelled">Отменён</option>
+                    </select>
+                  </div>
+                </template>
+                <p x-show="!financeInvoices.length" class="p-8 text-center text-sm text-slate-600">Счетов пока нет</p>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div x-show="!selectedFinanceProjectId" class="grid min-h-64 place-items-center rounded-xl border border-dashed border-slate-800 text-sm text-slate-600">
+          Выберите проект для просмотра экономики
+        </div>
+      </div>
     </main>
   </div>
 
@@ -355,6 +442,8 @@
         showLeadForm: false, showProjectForm: false,
         section: 'pipeline', calculations: [], calculationResult: null,
         projects: [], selectedProjectId: null,
+        selectedFinanceProjectId: null, financeEconomics: null,
+        financeEntries: [], financeInvoices: [],
         calculationName: '', calculationLeadId: '',
         calculationInput: {
           width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000,
@@ -364,6 +453,8 @@
         credentials: {email: '', password: '', full_name: ''},
         newLead: {title: '', raw_text: '', source: 'manual'},
         newProject: {name:'',installation_address:'',installation_date:'',lead_id:''},
+        newFinanceEntry: {type:'REVENUE',amount:null,description:'',is_planned:false},
+        newInvoice: {number:'',amount:null},
         statuses: [
           ['NEW','Новые'],['QUALIFICATION','Квалификация'],['CALCULATING','Расчёт'],
           ['PROPOSAL_SENT','КП отправлено'],['CONTRACT_SIGNING','Договор'],
@@ -375,6 +466,10 @@
         ].map(([code,label]) => ({code,label})),
         taskStatuses: [
           ['TODO','К выполнению'],['IN_PROGRESS','В работе'],['BLOCKED','Заблокировано'],['DONE','Готово']
+        ].map(([code,label]) => ({code,label})),
+        financeTypes: [
+          ['REVENUE','Выручка'],['MATERIAL','Материалы'],['PAYROLL','Оплата труда'],
+          ['DELIVERY','Доставка'],['TRAVEL','Командировка'],['RENTAL','Аренда'],['OTHER','Прочее']
         ].map(([code,label]) => ({code,label})),
         get selectedProject() { return this.projects.find(item=>item.id===this.selectedProjectId) || null; },
         async api(path, options={}) {
@@ -394,6 +489,7 @@
               this.api('/auth/me'), this.api('/leads'), this.api('/calculations'), this.api('/projects')
             ]);
             this.selectedProjectId = this.projects[0]?.id || null;
+            this.selectedFinanceProjectId = this.projects[0]?.id || null;
           }
           catch (error) { this.error = error.message; }
         },
@@ -518,6 +614,60 @@
         },
         projectStatusLabel(code) {
           return this.projectStatuses.find(item=>item.code===code)?.label || code;
+        },
+        financeTypeLabel(code) {
+          return this.financeTypes.find(item=>item.code===code)?.label || code;
+        },
+        async loadFinance() {
+          if (!this.selectedFinanceProjectId) {
+            this.financeEconomics=null; this.financeEntries=[]; this.financeInvoices=[]; return;
+          }
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            [this.financeEconomics,this.financeEntries,this.financeInvoices]=await Promise.all([
+              this.api(`${root}/economics`),this.api(`${root}/entries`),this.api(`${root}/invoices`)
+            ]);
+          } catch (error) { this.error=error.message; }
+        },
+        async createFinanceEntry() {
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            const entry=await this.api(`${root}/entries`,{
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.newFinanceEntry)
+            });
+            this.financeEntries.unshift(entry);
+            this.newFinanceEntry={type:'REVENUE',amount:null,description:'',is_planned:false};
+            this.financeEconomics=await this.api(`${root}/economics`);
+          } catch (error) { this.error=error.message; }
+        },
+        async createInvoice() {
+          try {
+            const root=`/finance/projects/${this.selectedFinanceProjectId}`;
+            const invoice=await this.api(`${root}/invoices`,{
+              method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.newInvoice)
+            });
+            this.financeInvoices.unshift(invoice); this.newInvoice={number:'',amount:null};
+          } catch (error) { this.error=error.message; }
+        },
+        async updateInvoice(invoice,status) {
+          const previous=invoice.status; invoice.status=status;
+          try {
+            const updated=await this.api(`/finance/invoices/${invoice.id}`,{
+              method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})
+            });
+            Object.assign(invoice,updated);
+          } catch (error) { invoice.status=previous; this.error=error.message; }
+        },
+        financeMetrics() {
+          const e=this.financeEconomics;
+          if (!e) return [];
+          return [
+            ['План выручки',this.money(e.planned_revenue),''],
+            ['Факт выручки',this.money(e.actual_revenue),'text-emerald-400'],
+            ['План затрат',this.money(e.planned_costs),''],
+            ['Факт затрат',this.money(e.actual_costs),'text-rose-300'],
+            ['Валовая маржа',`${this.money(e.gross_margin)} · ${e.gross_margin_percent ?? '—'}%`,e.gross_margin>=0?'text-emerald-400':'text-rose-400']
+          ];
         }
       }
     }
