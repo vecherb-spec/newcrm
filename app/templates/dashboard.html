@@ -327,8 +327,8 @@
           } catch (error) { this.error = error.message; }
         },
         loadCalculation(item) {
-          this.calculationInput = structuredClone(item.parameters);
-          this.calculationResult = structuredClone(item.result);
+          this.calculationInput = JSON.parse(JSON.stringify(item.parameters));
+          this.calculationResult = JSON.parse(JSON.stringify(item.result));
           this.calculationLeadId = item.lead_id || '';
           this.calculationName = `${item.name} — копия`;
         },
