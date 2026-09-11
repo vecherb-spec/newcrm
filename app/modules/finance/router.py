@@ -80,9 +80,7 @@ async def project_economics(
 ) -> ProjectEconomics:
     await _require_project(project_id, session)
     entries = list(
-        await session.scalars(
-            select(FinanceEntry).where(FinanceEntry.project_id == project_id)
-        )
+        await session.scalars(select(FinanceEntry).where(FinanceEntry.project_id == project_id))
     )
     zero = Decimal("0")
     planned_revenue = sum(
@@ -90,11 +88,7 @@ async def project_economics(
         zero,
     )
     actual_revenue = sum(
-        (
-            item.amount
-            for item in entries
-            if not item.is_planned and item.type is EntryType.REVENUE
-        ),
+        (item.amount for item in entries if not item.is_planned and item.type is EntryType.REVENUE),
         zero,
     )
     planned_costs = sum(
@@ -103,11 +97,7 @@ async def project_economics(
     )
     actual_costs_by_type = {
         entry_type: sum(
-            (
-                item.amount
-                for item in entries
-                if not item.is_planned and item.type is entry_type
-            ),
+            (item.amount for item in entries if not item.is_planned and item.type is entry_type),
             zero,
         )
         for entry_type in EntryType
@@ -116,9 +106,7 @@ async def project_economics(
     actual_costs = sum(actual_costs_by_type.values(), zero)
     gross_margin = actual_revenue - actual_costs
     margin_percent = (
-        (gross_margin / actual_revenue * 100).quantize(Decimal("0.01"))
-        if actual_revenue
-        else None
+        (gross_margin / actual_revenue * 100).quantize(Decimal("0.01")) if actual_revenue else None
     )
     return ProjectEconomics(
         project_id=project_id,
@@ -177,9 +165,7 @@ async def list_invoices(
 ) -> list[Invoice]:
     await _require_project(project_id, session)
     query = (
-        select(Invoice)
-        .where(Invoice.project_id == project_id)
-        .order_by(Invoice.created_at.desc())
+        select(Invoice).where(Invoice.project_id == project_id).order_by(Invoice.created_at.desc())
     )
     return list(await session.scalars(query))
 
