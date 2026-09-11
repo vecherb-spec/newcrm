@@ -54,7 +54,7 @@ async def _quote_context(
     }
 
 
-@router.get("/quotes/{calculation_id}", response_class=HTMLResponse)
+@router.get("/quotes/{calculation_id}/preview", response_class=HTMLResponse)
 async def preview_quote(
     calculation_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -102,9 +102,7 @@ async def acceptance_act_pdf(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     project = await session.scalar(
-        select(Project)
-        .where(Project.id == project_id)
-        .options(selectinload(Project.tasks))
+        select(Project).where(Project.id == project_id).options(selectinload(Project.tasks))
     )
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")

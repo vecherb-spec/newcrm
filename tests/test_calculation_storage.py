@@ -48,7 +48,7 @@ def test_saved_calculation_is_recomputed_and_listed() -> None:
         assert listing.status_code == 200
         assert listing.json()[0]["id"] == saved["id"]
 
-        preview = client.get(f"/api/v1/documents/quotes/{saved['id']}")
+        preview = client.get(f"/api/v1/documents/quotes/{saved['id']}/preview")
         assert preview.status_code == 200
         assert "<script>" not in preview.text
         assert "&lt;script&gt;" in preview.text

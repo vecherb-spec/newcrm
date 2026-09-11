@@ -69,9 +69,7 @@ def test_project_economics_entries_and_invoice_lifecycle() -> None:
         assert paid.status_code == 200
         assert paid.json()["status"] == "paid"
 
-        invoice_pdf = client.get(
-            f"/api/v1/documents/invoices/{invoice.json()['id']}.pdf"
-        )
+        invoice_pdf = client.get(f"/api/v1/documents/invoices/{invoice.json()['id']}.pdf")
         assert invoice_pdf.status_code == 200
         assert invoice_pdf.content.startswith(b"%PDF")
 
