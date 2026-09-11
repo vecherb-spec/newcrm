@@ -31,6 +31,20 @@ Open `http://localhost:8000` for the dashboard and `/docs` for the API.
 On first launch choose **Первый запуск**, create the administrator, then sign in.
 After the first user is created, the bootstrap endpoint closes permanently.
 
+## Production deployment
+
+The production override binds the API to loopback only and enables automatic
+container restarts and health checks:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Set `ENVIRONMENT=production`, a random `SECRET_KEY`, a random
+`POSTGRES_PASSWORD`, the matching encoded `DATABASE_URL`, and `APP_PORT=8010`.
+Terminate TLS in the host reverse proxy; an Nginx virtual host example for
+`crm.medialive.ru` is provided under `deploy/`.
+
 ## Local development
 
 Python 3.12+ and PostgreSQL are required.
