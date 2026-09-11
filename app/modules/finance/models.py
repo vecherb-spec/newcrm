@@ -1,6 +1,6 @@
-import enum
 from datetime import date
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Date, Enum, ForeignKey, Numeric, String
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base, UUIDTimestampMixin
 
 
-class EntryType(str, enum.Enum):
+class EntryType(StrEnum):
     REVENUE = "REVENUE"
     MATERIAL = "MATERIAL"
     PAYROLL = "PAYROLL"

@@ -4,7 +4,6 @@ Revision ID: 0001
 """
 
 from alembic import op
-
 from app.core.database import Base
 from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.finance import models as finance_models  # noqa: F401

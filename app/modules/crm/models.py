@@ -1,13 +1,13 @@
-import enum
+from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, JSON, String, Text
+from sqlalchemy import JSON, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, UUIDTimestampMixin
 
 
-class LeadStatus(str, enum.Enum):
+class LeadStatus(StrEnum):
     NEW = "NEW"
     QUALIFICATION = "QUALIFICATION"
     CALCULATING = "CALCULATING"

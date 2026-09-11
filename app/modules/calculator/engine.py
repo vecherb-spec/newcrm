@@ -84,11 +84,7 @@ def calculate_screen(data: CalculationInput) -> CalculationResult:
     controller_capacity = data.controller.ethernet_ports * data.controller.pixels_per_port
     controllers = ceil(pixels / controller_capacity)
     peak_power_w = cabinets * data.cabinet_peak_power_w
-    supplies = ceil(
-        peak_power_w
-        * (1 + data.power_redundancy_percent / 100)
-        / data.psu_capacity_w
-    )
+    supplies = ceil(peak_power_w * (1 + data.power_redundancy_percent / 100) / data.psu_capacity_w)
     signal_cable = round(cabinets * 0.8, 1)
     power_cable = round(cabinets * 1.1, 1)
     metal_profile = round(

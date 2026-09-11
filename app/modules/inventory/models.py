@@ -1,5 +1,5 @@
-import enum
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Enum, ForeignKey, Numeric, String, Text
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base, UUIDTimestampMixin
 
 
-class StockTransactionType(str, enum.Enum):
+class StockTransactionType(StrEnum):
     RECEIPT = "RECEIPT"
     ISSUE = "ISSUE"
     ADJUSTMENT = "ADJUSTMENT"

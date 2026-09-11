@@ -4,18 +4,19 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-# Import models so Alembic sees every table through Base.metadata.
-from app.modules.crm import models as crm_models  # noqa: F401
-from app.modules.finance import models as finance_models  # noqa: F401
-from app.modules.inventory import models as inventory_models  # noqa: F401
-from app.modules.projects import models as project_models  # noqa: F401
 from app.core.config import get_settings
 from app.integrations.webhooks import router as webhook_router
 from app.modules.calculator.router import router as calculator_router
+
+# Import models so Alembic sees every table through Base.metadata.
+from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.crm.router import router as crm_router
 from app.modules.documents.router import router as documents_router
+from app.modules.finance import models as finance_models  # noqa: F401
 from app.modules.finance.router import router as finance_router
+from app.modules.inventory import models as inventory_models  # noqa: F401
 from app.modules.inventory.router import router as inventory_router
+from app.modules.projects import models as project_models  # noqa: F401
 from app.modules.projects.router import router as projects_router
 
 settings = get_settings()

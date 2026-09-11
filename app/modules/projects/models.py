@@ -1,5 +1,5 @@
-import enum
 from datetime import date
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Date, Enum, ForeignKey, String, Text
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base, UUIDTimestampMixin
 
 
-class ProjectStatus(str, enum.Enum):
+class ProjectStatus(StrEnum):
     PLANNING = "PLANNING"
     PROCUREMENT = "PROCUREMENT"
     PRODUCTION = "PRODUCTION"
@@ -17,7 +17,7 @@ class ProjectStatus(str, enum.Enum):
     COMPLETED = "COMPLETED"
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(StrEnum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     BLOCKED = "BLOCKED"
@@ -29,7 +29,9 @@ class Project(UUIDTimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255))
     lead_id: Mapped[UUID | None] = mapped_column(ForeignKey("leads.id"), unique=True)
-    status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus), default=ProjectStatus.PLANNING)
+    status: Mapped[ProjectStatus] = mapped_column(
+        Enum(ProjectStatus), default=ProjectStatus.PLANNING
+    )
     installation_date: Mapped[date | None] = mapped_column(Date)
     installation_address: Mapped[str | None] = mapped_column(Text)
     delivery_status: Mapped[str] = mapped_column(String(50), default="pending")

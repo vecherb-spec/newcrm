@@ -18,9 +18,7 @@ async def list_leads(session: AsyncSession = Depends(get_session)) -> list[Lead]
 
 
 @router.post("", response_model=LeadRead, status_code=status.HTTP_201_CREATED)
-async def create_lead(
-    payload: LeadCreate, session: AsyncSession = Depends(get_session)
-) -> Lead:
+async def create_lead(payload: LeadCreate, session: AsyncSession = Depends(get_session)) -> Lead:
     lead = Lead(**payload.model_dump())
     session.add(lead)
     await session.commit()
