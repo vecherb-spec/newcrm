@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     app_name: str = "LED Ops"
     environment: str = "development"
     secret_key: SecretStr = SecretStr("change-me-in-production")
+    access_token_expire_minutes: int = 480
     database_url: str = "postgresql+asyncpg://ledops:ledops@localhost:5432/ledops"
     redis_url: str = "redis://localhost:6379/0"
     llm_api_key: SecretStr | None = None

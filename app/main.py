@@ -1,11 +1,14 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.core.config import get_settings
 from app.integrations.webhooks import router as webhook_router
+from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.auth.router import get_current_user
+from app.modules.auth.router import router as auth_router
 from app.modules.calculator.router import router as calculator_router
 
 # Import models so Alembic sees every table through Base.metadata.
@@ -34,9 +37,15 @@ for router in (
     inventory_router,
     finance_router,
     documents_router,
-    webhook_router,
 ):
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(
+        router,
+        prefix="/api/v1",
+        dependencies=[Depends(get_current_user)],
+    )
+
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(webhook_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])

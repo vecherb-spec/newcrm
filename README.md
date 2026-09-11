@@ -6,6 +6,7 @@ inventory and project finance.
 ## Included
 
 - CRM pipeline, contacts and omnichannel message persistence
+- JWT authentication, first-admin bootstrap and employee roles
 - Telegram webhook with secret verification and optional LLM parsing
 - deterministic, UI-independent LED screen calculation engine and BOM
 - project execution, assignments and stage entities
@@ -26,6 +27,8 @@ docker compose up --build
 ```
 
 Open `http://localhost:8000` for the dashboard and `/docs` for the API.
+On first launch choose **Первый запуск**, create the administrator, then sign in.
+After the first user is created, the bootstrap endpoint closes permanently.
 
 ## Local development
 
@@ -56,9 +59,8 @@ in `app/integrations`; bank implementations can satisfy `BankingGateway` without
 changing finance services. API routes use async unit-of-work sessions and never create
 database tables at application startup—schema ownership remains with Alembic.
 
-The initial migration bootstraps the current declarative metadata. Once this baseline
-is deployed, all schema changes should be generated as explicit incremental Alembic
-revisions.
+The initial migration is a frozen schema baseline. All later schema changes are applied
+as explicit incremental Alembic revisions.
 
 LLM parsing falls back to preserving unparsed source text when no API key is configured.
 It must be moved to ARQ before enabling high-volume public webhooks.
