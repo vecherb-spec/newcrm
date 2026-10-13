@@ -34,8 +34,12 @@ class Contact(UUIDTimestampMixin, Base):
     amo_id: Mapped[str | None] = mapped_column(String(80), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(160))
     phone: Mapped[str | None] = mapped_column(String(40), index=True)
+    normalized_phone: Mapped[str | None] = mapped_column(String(40), index=True)
     email: Mapped[str | None] = mapped_column(String(255), index=True)
     company: Mapped[str | None] = mapped_column(String(255))
+    telegram: Mapped[str | None] = mapped_column(String(160), index=True)
+    vk: Mapped[str | None] = mapped_column(String(160), index=True)
+    radist_chat_id: Mapped[str | None] = mapped_column(String(80), index=True)
 
 
 class Lead(UUIDTimestampMixin, Base):

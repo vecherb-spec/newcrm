@@ -20,16 +20,24 @@ class ContactCreate(BaseModel):
     amo_id: str | None = Field(default=None, max_length=80)
     name: str = Field(min_length=2, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
+    normalized_phone: str | None = Field(default=None, max_length=40)
     email: str | None = Field(default=None, max_length=255)
     company: str | None = Field(default=None, max_length=255)
+    telegram: str | None = Field(default=None, max_length=160)
+    vk: str | None = Field(default=None, max_length=160)
+    radist_chat_id: str | None = Field(default=None, max_length=80)
 
 
 class ContactUpdate(BaseModel):
     amo_id: str | None = Field(default=None, max_length=80)
     name: str | None = Field(default=None, min_length=2, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
+    normalized_phone: str | None = Field(default=None, max_length=40)
     email: str | None = Field(default=None, max_length=255)
     company: str | None = Field(default=None, max_length=255)
+    telegram: str | None = Field(default=None, max_length=160)
+    vk: str | None = Field(default=None, max_length=160)
+    radist_chat_id: str | None = Field(default=None, max_length=80)
 
 
 class ContactRead(ContactCreate):
@@ -146,10 +154,13 @@ class LeadDetail(LeadRead):
 
 
 class AmoImportContact(BaseModel):
-    name: str = Field(min_length=2, max_length=160)
+    name: str | None = Field(default=None, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     email: str | None = Field(default=None, max_length=255)
     company: str | None = Field(default=None, max_length=255)
+    telegram: str | None = Field(default=None, max_length=160)
+    vk: str | None = Field(default=None, max_length=160)
+    radist_chat_id: str | int | None = None
 
 
 class AmoImportNote(BaseModel):
@@ -160,11 +171,11 @@ class AmoImportNote(BaseModel):
 
 
 class AmoImportDeal(BaseModel):
-    amo_id: str = Field(min_length=1, max_length=80)
+    amo_id: str | int | None = None
     title: str = Field(min_length=2, max_length=255)
-    stage: str = Field(default=LeadStatus.NEW.value)
+    stage: str | None = None
     amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
-    source: str = Field(default="amoCRM", max_length=50)
+    source: str | None = Field(default="amoCRM", max_length=50)
     created_at: datetime | None = None
     contact: AmoImportContact
     notes: list[AmoImportNote] = Field(default_factory=list)
@@ -174,4 +185,6 @@ class AmoImportResult(BaseModel):
     created: int
     updated: int
     notes_created: int
+    empty_stage_flagged: int = 0
+    dry_run: bool = False
     lead_ids: list[UUID]

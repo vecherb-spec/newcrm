@@ -1,4 +1,5 @@
 import hmac
+import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
@@ -10,6 +11,15 @@ from app.core.llm_client import LeadParser
 from app.modules.crm.models import Contact, Lead, Message
 
 router = APIRouter(prefix="/webhooks", tags=["Integrations"])
+
+
+def _normalize_phone(phone: str | None) -> str | None:
+    if not phone:
+        return None
+    digits = re.sub(r"\D+", "", phone)
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = f"7{digits[1:]}"
+    return digits or None
 
 
 def _verify(received: str | None, expected: str | None) -> None:
@@ -35,6 +45,7 @@ async def _ingest_message(
         contact = Contact(
             name=parsed.contact_name or "Клиент из мессенджера",
             phone=parsed.contact_phone,
+            normalized_phone=_normalize_phone(parsed.contact_phone),
             company=parsed.location,
         )
         session.add(contact)

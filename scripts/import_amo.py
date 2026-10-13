@@ -27,6 +27,11 @@ def main() -> int:
         default=os.environ.get("CRM_API_TOKEN"),
         help="Bearer service API token",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate import without writing data",
+    )
     args = parser.parse_args()
     if not args.token:
         parser.error("Pass --token or set CRM_API_TOKEN")
@@ -36,6 +41,7 @@ def main() -> int:
 
     response = httpx.post(
         f"{args.api_url.rstrip('/')}/imports/amo/deals",
+        params={"dry_run": str(args.dry_run).lower()},
         headers={"Authorization": f"Bearer {args.token}"},
         json=payload,
         timeout=60,

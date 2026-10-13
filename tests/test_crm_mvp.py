@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -95,6 +97,13 @@ def test_crm_mvp_bot_api_deal_card_and_quote() -> None:
         by_phone = client.get("/api/v1/leads/lookup?phone=%2B79990000000", headers=headers)
         assert by_phone.status_code == 200
         assert by_phone.json()[0]["amo_id"] == "deal-42"
+
+        by_normalized_phone = client.get(
+            "/api/v1/leads/lookup?phone=89990000000",
+            headers=headers,
+        )
+        assert by_normalized_phone.status_code == 200
+        assert by_normalized_phone.json()[0]["amo_id"] == "deal-42"
 
         activity = client.post(
             f"/api/v1/leads/{lead_id}/activities",
@@ -193,6 +202,34 @@ def test_amo_import_is_idempotent_by_amo_id() -> None:
         lookup = client.get("/api/v1/leads/lookup?amo_id=amo-100", headers=headers)
         assert lookup.status_code == 200
         assert lookup.json()[0]["status"] == "CLOSED_WON"
+    finally:
+        app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
+
+
+def test_real_amo_import_fixture_dry_run() -> None:
+    client, engine = _client()
+    try:
+        _, service_token = _bootstrap_service_token(client)
+        headers = {"Authorization": f"Bearer {service_token}"}
+        fixture_path = Path(__file__).parent / "fixtures" / "crm_import_pending_1013.json"
+        payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+        response = client.post(
+            "/api/v1/imports/amo/deals?dry_run=true",
+            headers=headers,
+            json=payload,
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["dry_run"] is True
+        assert result["created"] == 52
+        assert result["notes_created"] == 68
+        assert result["empty_stage_flagged"] >= 2
+
+        lookup = client.get("/api/v1/leads/lookup?radist_chat_id=44395055", headers=headers)
+        assert lookup.status_code == 200
+        assert lookup.json() == []
     finally:
         app.dependency_overrides.clear()
         asyncio.run(engine.dispose())

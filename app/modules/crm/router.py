@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -77,14 +78,25 @@ def _lead_detail_options() -> tuple[object, ...]:
     )
 
 
-def _normalize_stage(stage: str) -> LeadStatus:
+def _normalize_phone(phone: str | None) -> str | None:
+    if not phone:
+        return None
+    digits = re.sub(r"\D+", "", phone)
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = f"7{digits[1:]}"
+    return digits or None
+
+
+def _normalize_stage(stage: str | None) -> tuple[LeadStatus, bool]:
+    if not stage:
+        return LeadStatus.QUALIFICATION, True
     try:
-        return LeadStatus(stage)
+        return LeadStatus(stage), False
     except ValueError:
         pass
     normalized = stage.strip().casefold()
     if normalized in STAGE_ALIASES:
-        return STAGE_ALIASES[normalized]
+        return STAGE_ALIASES[normalized], False
     raise HTTPException(status_code=422, detail=f"Неизвестная стадия сделки: {stage}")
 
 
@@ -143,6 +155,7 @@ async def _contact_from_payload(
     contact = Contact(
         name=payload.contact_name or payload.title or "Клиент",
         phone=payload.contact_phone,
+        normalized_phone=_normalize_phone(payload.contact_phone),
         email=payload.contact_email,
         company=payload.contact_company,
     )
@@ -207,7 +220,9 @@ async def create_contact(
     payload: ContactCreate,
     session: AsyncSession = Depends(get_session),
 ) -> Contact:
-    contact = Contact(**payload.model_dump())
+    values = payload.model_dump()
+    values["normalized_phone"] = _normalize_phone(payload.phone)
+    contact = Contact(**values)
     session.add(contact)
     await session.commit()
     await session.refresh(contact)
@@ -225,6 +240,8 @@ async def update_contact(
         raise HTTPException(status_code=404, detail="Контакт не найден")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(contact, field, value)
+    if "phone" in payload.model_fields_set:
+        contact.normalized_phone = _normalize_phone(payload.phone)
     await session.commit()
     await session.refresh(contact)
     return contact
@@ -279,16 +296,31 @@ async def create_lead(
 async def lookup_leads(
     amo_id: str | None = Query(default=None, min_length=1),
     phone: str | None = Query(default=None, min_length=1),
+    radist_chat_id: str | None = Query(default=None, min_length=1),
+    telegram: str | None = Query(default=None, min_length=1),
+    vk: str | None = Query(default=None, min_length=1),
     session: AsyncSession = Depends(get_session),
 ) -> list[Lead]:
-    if not amo_id and not phone:
-        raise HTTPException(status_code=422, detail="Укажите amo_id или phone")
+    if not any((amo_id, phone, radist_chat_id, telegram, vk)):
+        raise HTTPException(
+            status_code=422,
+            detail="Укажите amo_id, phone, radist_chat_id, telegram или vk",
+        )
     statement = select(Lead).outerjoin(Contact).options(*_lead_options())
     filters = []
     if amo_id:
         filters.append(Lead.amo_id == amo_id)
     if phone:
-        filters.append(Contact.phone == phone)
+        normalized_phone = _normalize_phone(phone)
+        filters.append(
+            or_(Contact.phone == phone, Contact.normalized_phone == normalized_phone)
+        )
+    if radist_chat_id:
+        filters.append(Contact.radist_chat_id == radist_chat_id)
+    if telegram:
+        filters.append(Contact.telegram == telegram)
+    if vk:
+        filters.append(Contact.vk == vk)
     result = await session.scalars(statement.where(or_(*filters)).order_by(Lead.created_at.desc()))
     return list(result)
 
@@ -392,40 +424,84 @@ async def update_task(
 async def import_amo_deals(
     payload: list[AmoImportDeal],
     actor: CurrentUser,
+    dry_run: bool = False,
     session: AsyncSession = Depends(get_session),
 ) -> AmoImportResult:
     created = 0
     updated = 0
     notes_created = 0
+    empty_stage_flagged = 0
     lead_ids: list[UUID] = []
 
     for item in payload:
+        amo_id = str(item.amo_id) if item.amo_id is not None else None
+        radist_chat_id = (
+            str(item.contact.radist_chat_id) if item.contact.radist_chat_id is not None else None
+        )
+        normalized_phone = _normalize_phone(item.contact.phone)
         contact = None
-        if item.contact.phone:
+        if radist_chat_id:
             contact = await session.scalar(
-                select(Contact).where(Contact.phone == item.contact.phone)
+                select(Contact).where(Contact.radist_chat_id == radist_chat_id)
+            )
+        if contact is None and normalized_phone:
+            contact = await session.scalar(
+                select(Contact).where(Contact.normalized_phone == normalized_phone)
             )
         if contact is None and item.contact.email:
             contact = await session.scalar(
                 select(Contact).where(Contact.email == item.contact.email)
             )
         if contact is None:
-            contact = Contact(**item.contact.model_dump())
+            contact = Contact(
+                name=item.contact.name or item.title,
+                phone=item.contact.phone,
+                normalized_phone=normalized_phone,
+                email=item.contact.email,
+                company=item.contact.company,
+                telegram=item.contact.telegram,
+                vk=item.contact.vk,
+                radist_chat_id=radist_chat_id,
+            )
             session.add(contact)
             await session.flush()
         else:
-            for field, value in item.contact.model_dump(exclude_unset=True).items():
-                setattr(contact, field, value)
+            contact.name = item.contact.name or contact.name or item.title
+            contact.phone = item.contact.phone
+            contact.normalized_phone = normalized_phone
+            contact.email = item.contact.email
+            contact.company = item.contact.company
+            contact.telegram = item.contact.telegram
+            contact.vk = item.contact.vk
+            contact.radist_chat_id = radist_chat_id
 
-        lead = await session.scalar(
-            select(Lead).where(Lead.amo_id == item.amo_id).options(*_lead_detail_options())
-        )
+        lead = None
+        if amo_id:
+            lead = await session.scalar(
+                select(Lead).where(Lead.amo_id == amo_id).options(*_lead_detail_options())
+            )
+        if lead is None and not amo_id:
+            fallback_filters = []
+            if radist_chat_id:
+                fallback_filters.append(Contact.radist_chat_id == radist_chat_id)
+            if normalized_phone:
+                fallback_filters.append(Contact.normalized_phone == normalized_phone)
+            if fallback_filters:
+                lead = await session.scalar(
+                    select(Lead)
+                    .join(Contact)
+                    .where(or_(*fallback_filters))
+                    .options(*_lead_detail_options())
+                )
+        stage, empty_stage = _normalize_stage(item.stage)
+        if empty_stage:
+            empty_stage_flagged += 1
         lead_values = {
-            "amo_id": item.amo_id,
+            "amo_id": amo_id,
             "title": item.title,
-            "status": _normalize_stage(item.stage),
+            "status": stage,
             "amount": item.amount,
-            "source": item.source,
+            "source": item.source or "amoCRM",
             "contact_id": contact.id,
         }
         if lead is None:
@@ -439,6 +515,10 @@ async def import_amo_deals(
             for field, value in lead_values.items():
                 setattr(lead, field, value)
             updated += 1
+        if empty_stage:
+            flags = set((lead.parsed_data or {}).get("import_flags", []))
+            flags.add("empty_stage_mapped_to_qualification")
+            lead.parsed_data = {**(lead.parsed_data or {}), "import_flags": sorted(flags)}
 
         for note in item.notes:
             note_type = _normalize_activity_type(note.type)
@@ -465,10 +545,15 @@ async def import_amo_deals(
             notes_created += 1
         lead_ids.append(lead.id)
 
-    await session.commit()
+    if dry_run:
+        await session.rollback()
+    else:
+        await session.commit()
     return AmoImportResult(
         created=created,
         updated=updated,
         notes_created=notes_created,
+        empty_stage_flagged=empty_stage_flagged,
+        dry_run=dry_run,
         lead_ids=lead_ids,
     )
