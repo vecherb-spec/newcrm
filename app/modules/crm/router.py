@@ -11,7 +11,15 @@ from app.core.database import get_session
 from app.modules.auth.models import User
 from app.modules.auth.router import CurrentUser
 from app.modules.calculator.models import EngineeringCalculation
-from app.modules.crm.models import ActivityType, Contact, Lead, LeadActivity, LeadStatus, LeadTask
+from app.modules.crm.models import (
+    ActivityType,
+    Contact,
+    Lead,
+    LeadActivity,
+    LeadStatus,
+    LeadTask,
+    TaskStatus,
+)
 from app.modules.crm.schemas import (
     ActivityCreate,
     ActivityRead,
@@ -29,6 +37,7 @@ from app.modules.crm.schemas import (
     LeadTaskUpdate,
     LeadUpdate,
 )
+from app.modules.tasks.service import sync_next_contact_task, utc_now
 
 router = APIRouter(tags=["CRM"])
 
@@ -75,6 +84,8 @@ def _lead_detail_options() -> tuple[object, ...]:
         *_lead_options(),
         selectinload(Lead.activities).selectinload(LeadActivity.author),
         selectinload(Lead.tasks).selectinload(LeadTask.author),
+        selectinload(Lead.tasks).selectinload(LeadTask.responsible_user),
+        selectinload(Lead.tasks).selectinload(LeadTask.contact),
     )
 
 
@@ -282,12 +293,15 @@ async def list_leads(
 @router.post("/leads", response_model=LeadRead, status_code=status.HTTP_201_CREATED)
 async def create_lead(
     payload: LeadCreate,
+    actor: CurrentUser,
     session: AsyncSession = Depends(get_session),
 ) -> Lead:
     await _validate_user(payload.responsible_user_id, session)
     contact_id = await _contact_from_payload(payload, session)
     lead = Lead(**_lead_values(payload), contact_id=contact_id)
     session.add(lead)
+    await session.flush()
+    await sync_next_contact_task(lead, actor.id, session)
     await session.commit()
     return await session.scalar(select(Lead).where(Lead.id == lead.id).options(*_lead_options()))
 
@@ -333,7 +347,10 @@ async def get_lead(lead_id: UUID, session: AsyncSession = Depends(get_session)) 
 
 @router.patch("/leads/{lead_id}", response_model=LeadRead)
 async def update_lead(
-    lead_id: UUID, payload: LeadUpdate, session: AsyncSession = Depends(get_session)
+    lead_id: UUID,
+    payload: LeadUpdate,
+    actor: CurrentUser,
+    session: AsyncSession = Depends(get_session),
 ) -> Lead:
     lead = await _require_lead(lead_id, session)
     await _validate_user(payload.responsible_user_id, session)
@@ -344,6 +361,7 @@ async def update_lead(
         for field in ("contact_name", "contact_phone", "contact_email", "contact_company")
     ):
         lead.contact_id = await _contact_from_payload(payload, session)
+    await sync_next_contact_task(lead, actor.id, session)
     await session.commit()
     return await session.scalar(select(Lead).where(Lead.id == lead.id).options(*_lead_options()))
 
@@ -387,12 +405,29 @@ async def create_task(
     actor: CurrentUser,
     session: AsyncSession = Depends(get_session),
 ) -> LeadTask:
-    await _require_lead(lead_id, session)
-    task = LeadTask(lead_id=lead_id, author_id=actor.id, **payload.model_dump())
+    lead = await _require_lead(lead_id, session)
+    task = LeadTask(
+        lead_id=lead_id,
+        contact_id=lead.contact_id,
+        title=payload.title,
+        due_at=payload.due_at,
+        status=TaskStatus.TODO,
+        priority=payload.priority,
+        is_completed=False,
+        responsible_user_id=payload.responsible_user_id or actor.id,
+        author_id=actor.id,
+        kind="manual",
+    )
     session.add(task)
     await session.commit()
     return await session.scalar(
-        select(LeadTask).where(LeadTask.id == task.id).options(selectinload(LeadTask.author))
+        select(LeadTask)
+        .where(LeadTask.id == task.id)
+        .options(
+            selectinload(LeadTask.author),
+            selectinload(LeadTask.responsible_user),
+            selectinload(LeadTask.contact),
+        )
     )
 
 
@@ -406,13 +441,22 @@ async def update_task(
     task = await session.scalar(
         select(LeadTask)
         .where(LeadTask.id == task_id, LeadTask.lead_id == lead_id)
-        .options(selectinload(LeadTask.author))
+        .options(
+            selectinload(LeadTask.author),
+            selectinload(LeadTask.responsible_user),
+            selectinload(LeadTask.contact),
+        )
     )
     if task is None:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     updates = payload.model_dump(exclude_unset=True)
     if "is_completed" in updates:
-        task.completed_at = datetime.now(UTC) if updates["is_completed"] else None
+        task.is_completed = updates.pop("is_completed")
+        task.status = TaskStatus.DONE if task.is_completed else TaskStatus.TODO
+        task.completed_at = utc_now() if task.is_completed else None
+    if updates.get("status") is TaskStatus.DONE:
+        task.is_completed = True
+        task.completed_at = utc_now()
     for field, value in updates.items():
         setattr(task, field, value)
     await session.commit()

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.crm.models import ActivityType, LeadStatus
+from app.modules.crm.models import ActivityType, LeadStatus, TaskPriority, TaskStatus
 
 
 class UserSummary(BaseModel):
@@ -115,11 +115,16 @@ class ActivityRead(BaseModel):
 class LeadTaskCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
     due_at: datetime | None = None
+    responsible_user_id: UUID | None = None
+    priority: TaskPriority = TaskPriority.NORMAL
 
 
 class LeadTaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
     due_at: datetime | None = None
+    responsible_user_id: UUID | None = None
+    status: TaskStatus | None = None
+    priority: TaskPriority | None = None
     is_completed: bool | None = None
 
 
@@ -127,13 +132,19 @@ class LeadTaskRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    lead_id: UUID
+    lead_id: UUID | None
+    contact_id: UUID | None
     title: str
     due_at: datetime | None
+    status: TaskStatus
+    priority: TaskPriority
     is_completed: bool
     completed_at: datetime | None
+    responsible_user_id: UUID | None
+    responsible_user: UserSummary | None = None
     author_id: UUID
     author: UserSummary | None = None
+    kind: str
     created_at: datetime
 
 

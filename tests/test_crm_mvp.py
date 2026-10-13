@@ -233,3 +233,94 @@ def test_real_amo_import_fixture_dry_run() -> None:
     finally:
         app.dependency_overrides.clear()
         asyncio.run(engine.dispose())
+
+
+def test_tasks_module_bot_api_and_automatic_flags() -> None:
+    client, engine = _client()
+    try:
+        admin_id, service_token = _bootstrap_service_token(client)
+        headers = {"Authorization": f"Bearer {service_token}"}
+
+        contact = client.post(
+            "/api/v1/contacts",
+            headers=headers,
+            json={"name": "Петр Клиент", "phone": "+79993334455", "company": "БЦ Восток"},
+        ).json()
+        lead = client.post(
+            "/api/v1/leads",
+            headers=headers,
+            json={
+                "title": "Экран в БЦ Восток",
+                "status": "QUALIFICATION",
+                "contact_id": contact["id"],
+                "responsible_user_id": admin_id,
+                "next_contact_at": "2026-10-13T18:00:00Z",
+            },
+        )
+        assert lead.status_code == 201
+
+        all_tasks = client.get("/api/v1/tasks?view=all", headers=headers)
+        assert all_tasks.status_code == 200
+        next_contact_tasks = [task for task in all_tasks.json() if task["kind"] == "next_contact"]
+        assert len(next_contact_tasks) == 1
+        assert next_contact_tasks[0]["lead_id"] == lead.json()["id"]
+
+        standalone = client.post(
+            "/api/v1/tasks",
+            headers=headers,
+            json={
+                "title": "Проверить оплату",
+                "due_at": "2026-10-12T12:00:00Z",
+                "priority": "URGENT",
+                "responsible_user_id": admin_id,
+            },
+        )
+        assert standalone.status_code == 201
+        assert standalone.json()["priority"] == "URGENT"
+
+        overdue = client.get("/api/v1/tasks?view=overdue", headers=headers)
+        assert overdue.status_code == 200
+        assert any(task["id"] == standalone.json()["id"] for task in overdue.json())
+
+        calendar = client.get("/api/v1/tasks/calendar?start=2026-10-12&end=2026-10-14", headers=headers)
+        assert calendar.status_code == 200
+        assert {task["title"] for task in calendar.json()} >= {
+            "Проверить оплату",
+            "Связаться по сделке: Экран в БЦ Восток",
+        }
+
+        completed = client.post(
+            f"/api/v1/tasks/{standalone.json()['id']}/complete",
+            headers=headers,
+        )
+        assert completed.status_code == 200
+        assert completed.json()["status"] == "DONE"
+
+        import_response = client.post(
+            "/api/v1/imports/amo/deals",
+            headers=headers,
+            json=[
+                {
+                    "amo_id": "proposal-no-response",
+                    "title": "КП без ответа",
+                    "stage": "КП отправлено",
+                    "amount": "100000",
+                    "source": "amoCRM",
+                    "created_at": "2026-10-01T10:00:00Z",
+                    "contact": {"name": "Анна", "phone": "+79994445566"},
+                    "notes": [],
+                }
+            ],
+        )
+        assert import_response.status_code == 200
+
+        flags = client.get("/api/v1/tasks/proposal-no-response", headers=headers)
+        assert flags.status_code == 200
+        assert any(item["flag"] == "КП без ответа" for item in flags.json())
+
+        dashboard = client.get("/api/v1/tasks/dashboard", headers=headers)
+        assert dashboard.status_code == 200
+        assert dashboard.json()["no_response_proposals"] >= 1
+    finally:
+        app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
