@@ -97,7 +97,10 @@ def _normalize_activity_type(activity_type: str) -> ActivityType:
     try:
         return ActivityType(ACTIVITY_ALIASES.get(normalized, activity_type))
     except ValueError as error:
-        raise HTTPException(status_code=422, detail=f"Неизвестный тип заметки: {activity_type}") from error
+        raise HTTPException(
+            status_code=422,
+            detail=f"Неизвестный тип заметки: {activity_type}",
+        ) from error
 
 
 async def _require_lead(lead_id: UUID, session: AsyncSession) -> Lead:
@@ -155,7 +158,10 @@ def _lead_values(payload: LeadCreate | LeadUpdate) -> dict[str, object]:
         "contact_email",
         "contact_company",
     }
-    return payload.model_dump(exclude=excluded | {"contact_id"}, exclude_unset=isinstance(payload, LeadUpdate))
+    return payload.model_dump(
+        exclude=excluded | {"contact_id"},
+        exclude_unset=isinstance(payload, LeadUpdate),
+    )
 
 
 async def _lead_detail(lead: Lead, session: AsyncSession) -> LeadDetail:
@@ -187,7 +193,11 @@ async def list_contacts(
     if query:
         pattern = f"%{query}%"
         statement = statement.where(
-            or_(Contact.name.ilike(pattern), Contact.phone.ilike(pattern), Contact.company.ilike(pattern))
+            or_(
+                Contact.name.ilike(pattern),
+                Contact.phone.ilike(pattern),
+                Contact.company.ilike(pattern),
+            )
         )
     return list(await session.scalars(statement))
 
@@ -242,7 +252,11 @@ async def list_leads(
     if query:
         pattern = f"%{query}%"
         statement = statement.where(
-            or_(Lead.title.ilike(pattern), Contact.phone.ilike(pattern), Contact.company.ilike(pattern))
+            or_(
+                Lead.title.ilike(pattern),
+                Contact.phone.ilike(pattern),
+                Contact.company.ilike(pattern),
+            )
         )
     result = await session.scalars(statement.order_by(Lead.created_at.desc()))
     return list(result)
@@ -388,9 +402,13 @@ async def import_amo_deals(
     for item in payload:
         contact = None
         if item.contact.phone:
-            contact = await session.scalar(select(Contact).where(Contact.phone == item.contact.phone))
+            contact = await session.scalar(
+                select(Contact).where(Contact.phone == item.contact.phone)
+            )
         if contact is None and item.contact.email:
-            contact = await session.scalar(select(Contact).where(Contact.email == item.contact.email))
+            contact = await session.scalar(
+                select(Contact).where(Contact.email == item.contact.email)
+            )
         if contact is None:
             contact = Contact(**item.contact.model_dump())
             session.add(contact)

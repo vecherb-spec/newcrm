@@ -13,8 +13,8 @@ from app.core.security import (
     create_access_token,
     create_service_token,
     decode_access_token,
-    hash_service_token,
     hash_password,
+    hash_service_token,
     verify_password,
 )
 from app.modules.auth.models import ApiToken, User, UserRole
@@ -182,4 +182,5 @@ async def create_api_token(
     session.add(api_token)
     await session.commit()
     await session.refresh(api_token)
-    return ApiTokenCreated.model_validate({**ApiTokenRead.model_validate(api_token).model_dump(), "token": token})
+    response = ApiTokenRead.model_validate(api_token).model_dump()
+    return ApiTokenCreated.model_validate({**response, "token": token})

@@ -1,6 +1,6 @@
-from enum import StrEnum
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
