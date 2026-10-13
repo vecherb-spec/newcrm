@@ -6,8 +6,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import get_settings
 from app.core.database import Base, get_session
 from app.main import app
+from app.modules.inbox.adapters import SendResult
+from app.modules.inbox.models import InboxChannel
 
 
 def _client() -> tuple[TestClient, object]:
@@ -326,4 +329,137 @@ def test_tasks_module_bot_api_and_automatic_flags() -> None:
         assert dashboard.json()["no_response_proposals"] >= 1
     finally:
         app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
+
+
+def test_inbox_radist_webhook_matching_and_mocked_send(monkeypatch) -> None:
+    monkeypatch.setenv("RADIST_WEBHOOK_SECRET", "radist-secret")
+    get_settings.cache_clear()
+    client, engine = _client()
+    try:
+        _, service_token = _bootstrap_service_token(client)
+        headers = {"Authorization": f"Bearer {service_token}"}
+        contact = client.post(
+            "/api/v1/contacts",
+            headers=headers,
+            json={
+                "name": "Клиент Inbox",
+                "phone": "+79995550000",
+                "radist_chat_id": "452764",
+            },
+        ).json()
+        lead = client.post(
+            "/api/v1/leads",
+            headers=headers,
+            json={"title": "Сделка Inbox", "contact_id": contact["id"]},
+        ).json()
+
+        channels = client.get("/api/v1/inbox/channels", headers=headers)
+        assert channels.status_code == 200
+        assert any(item["connected"] is False for item in channels.json())
+
+        webhook = client.post(
+            "/api/v1/webhooks/radist/radist-secret",
+            json={
+                "company_id": 510,
+                "event_type": "messages.create",
+                "event": {
+                    "chat_id": 452764,
+                    "chat": {
+                        "id": 452764,
+                        "name": "Клиент Inbox",
+                        "phone": "79995550000",
+                        "username": None,
+                    },
+                    "message": {
+                        "message_id": "radist-message-1",
+                        "direction": "inbound",
+                        "message_type": "text",
+                        "created_at": "2026-10-13T10:00:00+00:00",
+                        "text": {"text": "Здравствуйте, нужен экран"},
+                    },
+                },
+            },
+        )
+        assert webhook.status_code == 202
+
+        conversations = client.get("/api/v1/inbox/conversations", headers=headers)
+        assert conversations.status_code == 200
+        conversation = conversations.json()[0]
+        assert conversation["contact_id"] == contact["id"]
+        assert conversation["lead_id"] == lead["id"]
+        assert conversation["unread_count"] == 1
+
+        detail = client.get(f"/api/v1/inbox/conversations/{conversation['id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["messages"][0]["body"] == "Здравствуйте, нужен экран"
+
+        lead_detail = client.get(f"/api/v1/leads/{lead['id']}", headers=headers).json()
+        assert any("Входящее сообщение" in item["body"] for item in lead_detail["activities"])
+
+        class FakeRadistAdapter:
+            channel = InboxChannel.RADIST
+
+            def is_connected(self) -> bool:
+                return True
+
+            async def send_message(self, message):
+                assert message.text == "Ответ вручную"
+                return SendResult(external_id="outbox-1", raw={"mock": True})
+
+            async def backfill(self):
+                return []
+
+        monkeypatch.setattr(
+            "app.modules.inbox.router.adapters_by_channel",
+            lambda _settings: {InboxChannel.RADIST: FakeRadistAdapter()},
+        )
+        sent = client.post(
+            f"/api/v1/inbox/conversations/{conversation['id']}/messages",
+            headers=headers,
+            json={"text": "Ответ вручную", "original_filename": "kp.pdf"},
+        )
+        assert sent.status_code == 201
+        assert sent.json()["direction"] == "OUTBOUND"
+        assert sent.json()["original_filename"] == "kp.pdf"
+    finally:
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+        asyncio.run(engine.dispose())
+
+
+def test_vk_callback_confirmation_and_message(monkeypatch) -> None:
+    monkeypatch.setenv("VK_CONFIRMATION_CODE", "confirm-code")
+    monkeypatch.setenv("VK_SECRET", "vk-secret")
+    get_settings.cache_clear()
+    client, engine = _client()
+    try:
+        _, service_token = _bootstrap_service_token(client)
+        confirmation = client.post("/api/v1/webhooks/vk", json={"type": "confirmation"})
+        assert confirmation.status_code == 200
+        assert confirmation.text == "confirm-code"
+
+        incoming = client.post(
+            "/api/v1/webhooks/vk",
+            json={
+                "type": "message_new",
+                "secret": "vk-secret",
+                "object": {
+                    "message": {
+                        "id": 11,
+                        "from_id": 123,
+                        "peer_id": 123,
+                        "text": "Сообщение из VK",
+                    }
+                },
+            },
+        )
+        assert incoming.status_code == 200
+        headers = {"Authorization": f"Bearer {service_token}"}
+        conversations = client.get("/api/v1/inbox/conversations?channel=VK", headers=headers)
+        assert conversations.status_code == 200
+        assert conversations.json()[0]["title"] == "VK 123"
+    finally:
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
         asyncio.run(engine.dispose())

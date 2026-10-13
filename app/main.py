@@ -18,6 +18,8 @@ from app.modules.crm.router import router as crm_router
 from app.modules.documents.router import router as documents_router
 from app.modules.finance import models as finance_models  # noqa: F401
 from app.modules.finance.router import router as finance_router
+from app.modules.inbox import models as inbox_models  # noqa: F401
+from app.modules.inbox.router import router as inbox_router
 from app.modules.inventory import models as inventory_models  # noqa: F401
 from app.modules.inventory.router import router as inventory_router
 from app.modules.projects import models as project_models  # noqa: F401
@@ -40,6 +42,7 @@ for router in (
     finance_router,
     documents_router,
     tasks_router,
+    inbox_router,
 ):
     app.include_router(
         router,
