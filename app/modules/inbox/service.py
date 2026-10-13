@@ -125,15 +125,20 @@ async def record_message(
     raw_payload: dict[str, object] | None = None,
 ) -> InboxMessage:
     if external_id:
-        existing = await session.scalar(select(InboxMessage).where(InboxMessage.external_id == external_id))
+        existing = await session.scalar(
+            select(InboxMessage).where(InboxMessage.external_id == external_id)
+        )
         if existing:
             return existing
+    message_status = (
+        MessageStatus.RECEIVED if direction is MessageDirection.INBOUND else MessageStatus.SENT
+    )
     message = InboxMessage(
         conversation_id=conversation.id,
         channel=conversation.channel,
         external_id=external_id,
         direction=direction,
-        status=MessageStatus.RECEIVED if direction is MessageDirection.INBOUND else MessageStatus.SENT,
+        status=message_status,
         body=body,
         sender_name=sender_name,
         sent_by_id=sent_by.id if sent_by else None,
@@ -149,8 +154,13 @@ async def record_message(
         conversation.unread_count += 1
     await session.flush()
     if conversation.lead_id:
-        prefix = "Входящее сообщение" if direction is MessageDirection.INBOUND else "Исходящее сообщение"
-        activity_body = f"{prefix} ({conversation.channel.value}): {body or original_filename or ''}".strip()
+        prefix = (
+            "Входящее сообщение"
+            if direction is MessageDirection.INBOUND
+            else "Исходящее сообщение"
+        )
+        content = body or original_filename or ""
+        activity_body = f"{prefix} ({conversation.channel.value}): {content}".strip()
         session.add(
             LeadActivity(
                 lead_id=conversation.lead_id,

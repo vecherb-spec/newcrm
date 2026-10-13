@@ -43,14 +43,28 @@ def upgrade() -> None:
         sa.Column("unread_count", sa.Integer(), nullable=False),
         sa.Column("last_message_at", sa.DateTime(timezone=True)),
         sa.Column("raw_profile", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     op.create_index("ix_inbox_conversations_channel", "inbox_conversations", ["channel"])
     op.create_index("ix_inbox_conversations_external_id", "inbox_conversations", ["external_id"])
     op.create_index("ix_inbox_conversations_contact_id", "inbox_conversations", ["contact_id"])
     op.create_index("ix_inbox_conversations_lead_id", "inbox_conversations", ["lead_id"])
-    op.create_index("ix_inbox_conversations_last_message_at", "inbox_conversations", ["last_message_at"])
+    op.create_index(
+        "ix_inbox_conversations_last_message_at",
+        "inbox_conversations",
+        ["last_message_at"],
+    )
     op.create_unique_constraint(
         "uq_inbox_conversations_channel_external_id",
         "inbox_conversations",
@@ -60,7 +74,12 @@ def upgrade() -> None:
     op.create_table(
         "inbox_messages",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("conversation_id", sa.Uuid(), sa.ForeignKey("inbox_conversations.id"), nullable=False),
+        sa.Column(
+            "conversation_id",
+            sa.Uuid(),
+            sa.ForeignKey("inbox_conversations.id"),
+            nullable=False,
+        ),
         sa.Column("channel", inbox_channel, nullable=False),
         sa.Column("external_id", sa.String(255), unique=True),
         sa.Column("direction", message_direction, nullable=False),
@@ -73,8 +92,18 @@ def upgrade() -> None:
         sa.Column("attachment_url", sa.Text()),
         sa.Column("attachment_mime", sa.String(120)),
         sa.Column("raw_payload", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     op.create_index("ix_inbox_messages_conversation_id", "inbox_messages", ["conversation_id"])
     op.create_index("ix_inbox_messages_channel", "inbox_messages", ["channel"])

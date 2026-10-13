@@ -58,7 +58,10 @@ class InboxMessage(UUIDTimestampMixin, Base):
     channel: Mapped[InboxChannel] = mapped_column(Enum(InboxChannel), index=True)
     external_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     direction: Mapped[MessageDirection] = mapped_column(Enum(MessageDirection), index=True)
-    status: Mapped[MessageStatus] = mapped_column(Enum(MessageStatus), default=MessageStatus.RECEIVED)
+    status: Mapped[MessageStatus] = mapped_column(
+        Enum(MessageStatus),
+        default=MessageStatus.RECEIVED,
+    )
     body: Mapped[str | None] = mapped_column(Text)
     sender_name: Mapped[str | None] = mapped_column(String(160))
     sent_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
