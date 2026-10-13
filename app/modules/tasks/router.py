@@ -118,7 +118,7 @@ async def _proposal_flags(session: AsyncSession) -> list[ProposalNoResponse]:
     leads = list(
         await session.scalars(
             select(Lead)
-            .where(Lead.status == LeadStatus.PROPOSAL_SENT)
+            .where(Lead.status == LeadStatus.PROPOSAL_SENT.value)
             .options(selectinload(Lead.activities), selectinload(Lead.contact))
         )
     )

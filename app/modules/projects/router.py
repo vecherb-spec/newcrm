@@ -158,7 +158,7 @@ async def create_project(
         lead = await session.get(Lead, payload.lead_id)
         if lead is None:
             raise HTTPException(status_code=404, detail="Lead not found")
-        if lead.status is not LeadStatus.CLOSED_WON:
+        if lead.status != LeadStatus.CLOSED_WON.value:
             raise HTTPException(
                 status_code=409,
                 detail="Project can only be created from a won lead",
