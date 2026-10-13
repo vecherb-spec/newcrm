@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.calculator.models import EngineeringCalculation
+from app.modules.crm.lead_specs.service import specs_for_documents
 from app.modules.crm.models import Contact, Lead
 from app.modules.documents.amount_words import rubles_in_words
 from app.modules.documents.models import CompanyProfile, DocumentType
@@ -128,6 +129,7 @@ async def build_document_context(
             "id": str(lead.id) if lead else None,
             "title": lead.title if lead else None,
             "amount": str(lead.amount) if lead and lead.amount else None,
+            "specs": specs_for_documents(lead.specs or {}) if lead else {},
         },
         "project": {
             "id": str(project.id) if project else None,
