@@ -1,14 +1,113 @@
 <!doctype html>
-<html lang="ru" class="h-full bg-slate-950">
+<html lang="ru" class="h-full bg-slate-50">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Medialive CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <style>[x-cloak]{display:none!important}</style>
+  <style>
+    [x-cloak]{display:none!important}
+    :root {
+      --crm-bg: #f6f8fb;
+      --crm-surface: rgba(255, 255, 255, .92);
+      --crm-surface-strong: #ffffff;
+      --crm-line: #e5e7eb;
+      --crm-muted: #64748b;
+      --crm-ink: #172033;
+      --crm-accent: #2563eb;
+      --crm-accent-soft: #dbeafe;
+      --crm-warn: #f59e0b;
+      --crm-danger: #e11d48;
+      --crm-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+      --crm-shadow-soft: 0 10px 28px rgba(15, 23, 42, .06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, .10), transparent 32rem),
+        linear-gradient(135deg, #fbfdff 0%, var(--crm-bg) 48%, #eef4ff 100%) !important;
+      color: var(--crm-ink) !important;
+      letter-spacing: -.01em;
+    }
+    .bg-slate-950, .bg-slate-900\/60 { background: var(--crm-bg) !important; }
+    .bg-slate-900, .bg-slate-950\/80, .bg-slate-950\/85 {
+      background: var(--crm-surface) !important;
+      backdrop-filter: blur(18px);
+    }
+    .bg-slate-800, .bg-slate-800\/60 { background: #f1f5f9 !important; }
+    .bg-slate-700 { background: #e2e8f0 !important; color: var(--crm-ink) !important; }
+    .border-slate-800, .border-slate-700, .border-slate-600 { border-color: var(--crm-line) !important; }
+    .text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400 { color: var(--crm-ink) !important; }
+    .text-slate-500, .text-slate-600 { color: var(--crm-muted) !important; }
+    .text-cyan-300, .text-cyan-400, .text-cyan-500 { color: var(--crm-accent) !important; }
+    .bg-cyan-500 {
+      background: linear-gradient(135deg, var(--crm-accent), #1d4ed8) !important;
+      color: #fff !important;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, .22);
+    }
+    .hover\:bg-cyan-400:hover { background: #1d4ed8 !important; }
+    .bg-cyan-500\/15 { background: var(--crm-accent-soft) !important; }
+    .text-emerald-400 { color: #059669 !important; }
+    .text-amber-400, .text-amber-300 { color: #b45309 !important; }
+    .bg-amber-500\/10 { background: #fef3c7 !important; }
+    .text-rose-400, .text-rose-300, .text-rose-200 { color: var(--crm-danger) !important; }
+    .bg-rose-950 { background: #fff1f2 !important; }
+    aside.fixed {
+      background: rgba(255, 255, 255, .86) !important;
+      box-shadow: 16px 0 44px rgba(15, 23, 42, .06);
+      backdrop-filter: blur(22px);
+    }
+    main { min-height: 100vh; }
+    input, select, textarea {
+      background: #fff !important;
+      border-color: #dbe3ef !important;
+      color: var(--crm-ink) !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--crm-accent) !important;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, .12) !important;
+    }
+    button, input, select, textarea, article, section, form, aside, table {
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .18s ease;
+    }
+    main section article,
+    main > section > div,
+    form.rounded-xl,
+    .rounded-xl.border,
+    .rounded-2xl.border {
+      box-shadow: var(--crm-shadow-soft);
+    }
+    article:hover { transform: translateY(-1px); }
+    .shadow-2xl, .shadow-xl { box-shadow: var(--crm-shadow) !important; }
+    .fixed.inset-0 { background: rgba(15, 23, 42, .22) !important; backdrop-filter: blur(8px); }
+    table tr:hover td { background: #f8fafc; }
+    ::selection { background: var(--crm-accent-soft); color: var(--crm-ink); }
+    @media (max-width: 900px) {
+      aside.fixed {
+        position: static !important;
+        width: auto !important;
+        min-height: auto !important;
+        border-right: 0 !important;
+        border-bottom: 1px solid var(--crm-line) !important;
+      }
+      aside nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+      aside .absolute { position: static !important; margin-top: 1.5rem; }
+      main.ml-64 { margin-left: 0 !important; padding: 1rem !important; }
+      main .grid, .mx-auto.grid { grid-template-columns: minmax(0, 1fr) !important; }
+      .w-72 { width: 18rem !important; }
+      .max-w-6xl { max-width: 100% !important; }
+      .fixed.inset-0 { overflow: auto; }
+      .border-l { border-left: 0 !important; border-top: 1px solid var(--crm-line) !important; }
+    }
+  </style>
 </head>
-<body class="h-full text-slate-100" x-data="crmApp()" x-init="init()">
+<body class="h-full text-slate-900" x-data="crmApp()" x-init="init()">
   <div x-show="!token" class="grid min-h-full place-items-center bg-slate-950 p-6">
     <form @submit.prevent="authenticate" class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
       <p class="text-xs font-bold tracking-[.3em] text-cyan-400">MEDIALIVE CRM</p>
