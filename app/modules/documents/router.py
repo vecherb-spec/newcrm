@@ -11,11 +11,13 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_session
 from app.modules.calculator.models import EngineeringCalculation
 from app.modules.crm.models import Lead
+from app.modules.documents.registry import router as registry_router
 from app.modules.documents.service import render_document, render_pdf
 from app.modules.finance.models import Invoice
 from app.modules.projects.models import Project
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
+router.include_router(registry_router)
 
 MEDIALIVE_REQUISITES = {
     "name": "ООО «МЕДИАЛАЙВ»",

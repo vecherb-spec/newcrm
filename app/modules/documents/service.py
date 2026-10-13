@@ -18,4 +18,8 @@ def render_document(template_name: str, context: dict[str, Any]) -> str:
 
 def render_pdf(template_name: str, context: dict[str, Any]) -> bytes:
     html = render_document(template_name, context)
+    return render_pdf_html(html)
+
+
+def render_pdf_html(html: str) -> bytes:
     return HTML(string=html, base_url=str(TEMPLATE_DIR)).write_pdf()
