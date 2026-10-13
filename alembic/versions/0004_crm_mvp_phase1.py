@@ -5,6 +5,7 @@ Revises: 0003
 """
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -96,8 +97,19 @@ def _replace_lead_status_enum(new_to_old: bool = False) -> None:
 
 def upgrade() -> None:
     _replace_lead_status_enum()
+    bind = op.get_bind()
     activity_type = sa.Enum("CALL", "MESSAGE", "MEETING", "COMMENT", name="activitytype")
-    activity_type.create(op.get_bind(), checkfirst=True)
+    activity_column_type = activity_type
+    if bind.dialect.name == "postgresql":
+        activity_type.create(bind, checkfirst=True)
+        activity_column_type = postgresql.ENUM(
+            "CALL",
+            "MESSAGE",
+            "MEETING",
+            "COMMENT",
+            name="activitytype",
+            create_type=False,
+        )
 
     op.add_column("leads", sa.Column("amount", sa.Numeric(14, 2)))
     op.add_column("leads", sa.Column("responsible_user_id", sa.Uuid(), sa.ForeignKey("users.id")))
@@ -111,7 +123,7 @@ def upgrade() -> None:
         "lead_activities",
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("lead_id", sa.Uuid(), sa.ForeignKey("leads.id"), nullable=False),
-        sa.Column("type", activity_type, nullable=False),
+        sa.Column("type", activity_column_type, nullable=False),
         sa.Column("body", sa.Text(), nullable=False),
         sa.Column("author_id", sa.Uuid(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column(
