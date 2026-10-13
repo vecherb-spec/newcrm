@@ -15,6 +15,7 @@ from app.modules.calculator.router import router as calculator_router
 # Import models so Alembic sees every table through Base.metadata.
 from app.modules.crm import models as crm_models  # noqa: F401
 from app.modules.crm.router import router as crm_router
+from app.modules.documents import models as documents_models  # noqa: F401
 from app.modules.documents.router import router as documents_router
 from app.modules.finance import models as finance_models  # noqa: F401
 from app.modules.finance.router import router as finance_router

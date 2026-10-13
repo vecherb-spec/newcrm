@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     vk_group_token: SecretStr | None = None
     vk_confirmation_code: SecretStr | None = None
     vk_secret: SecretStr | None = None
+    document_storage_dir: str = "storage/documents"
 
     @model_validator(mode="after")
     def reject_default_production_secret(self) -> "Settings":
