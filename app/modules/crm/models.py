@@ -81,6 +81,8 @@ class Lead(UUIDTimestampMixin, Base):
     responsible_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
     next_contact_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     lost_reason: Mapped[str | None] = mapped_column(Text)
+    contract_signed: Mapped[bool] = mapped_column(Boolean, default=False)
+    paid: Mapped[bool] = mapped_column(Boolean, default=False)
     contact: Mapped[Contact | None] = relationship()
     responsible_user: Mapped[User | None] = relationship(foreign_keys=[responsible_user_id])
     activities: Mapped[list["LeadActivity"]] = relationship(

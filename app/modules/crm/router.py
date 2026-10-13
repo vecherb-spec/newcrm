@@ -37,6 +37,11 @@ from app.modules.crm.schemas import (
     LeadTaskUpdate,
     LeadUpdate,
 )
+from app.modules.projects.service import (
+    get_project_for_lead,
+    lead_ready_for_project,
+    maybe_auto_create_project,
+)
 from app.modules.tasks.service import sync_next_contact_task, utc_now
 
 router = APIRouter(tags=["CRM"])
@@ -196,6 +201,7 @@ async def _lead_detail(lead: Lead, session: AsyncSession) -> LeadDetail:
             .order_by(EngineeringCalculation.created_at.desc())
         )
     )
+    project = await get_project_for_lead(session, lead.id)
     return LeadDetail.model_validate(
         {
             **LeadRead.model_validate(lead).model_dump(),
@@ -204,6 +210,8 @@ async def _lead_detail(lead: Lead, session: AsyncSession) -> LeadDetail:
             "calculations": [
                 CalculationSummary.model_validate(calculation) for calculation in calculations
             ],
+            "project_id": project.id if project else None,
+            "ready_for_project": lead_ready_for_project(lead),
         }
     )
 
@@ -302,6 +310,7 @@ async def create_lead(
     session.add(lead)
     await session.flush()
     await sync_next_contact_task(lead, actor.id, session)
+    await maybe_auto_create_project(session, lead)
     await session.commit()
     return await session.scalar(select(Lead).where(Lead.id == lead.id).options(*_lead_options()))
 
@@ -362,8 +371,25 @@ async def update_lead(
     ):
         lead.contact_id = await _contact_from_payload(payload, session)
     await sync_next_contact_task(lead, actor.id, session)
+    await maybe_auto_create_project(session, lead)
     await session.commit()
     return await session.scalar(select(Lead).where(Lead.id == lead.id).options(*_lead_options()))
+
+
+@router.post("/leads/{lead_id}/create-project", status_code=status.HTTP_201_CREATED)
+async def create_project_for_lead(
+    lead_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    from app.modules.projects.service import create_project_from_lead
+
+    lead = await _require_lead(lead_id, session)
+    try:
+        project = await create_project_from_lead(session, lead)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    await session.commit()
+    return {"project_id": str(project.id)}
 
 
 @router.post(
