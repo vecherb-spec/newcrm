@@ -22,6 +22,7 @@ from app.modules.inventory import models as inventory_models  # noqa: F401
 from app.modules.inventory.router import router as inventory_router
 from app.modules.projects import models as project_models  # noqa: F401
 from app.modules.projects.router import router as projects_router
+from app.modules.tasks.router import router as tasks_router
 
 settings = get_settings()
 app = FastAPI(
@@ -38,6 +39,7 @@ for router in (
     inventory_router,
     finance_router,
     documents_router,
+    tasks_router,
 ):
     app.include_router(
         router,

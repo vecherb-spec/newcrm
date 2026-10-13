@@ -28,6 +28,19 @@ class ActivityType(StrEnum):
     COMMENT = "COMMENT"
 
 
+class TaskStatus(StrEnum):
+    TODO = "TODO"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
+
+
+class TaskPriority(StrEnum):
+    LOW = "LOW"
+    NORMAL = "NORMAL"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+
+
 class Contact(UUIDTimestampMixin, Base):
     __tablename__ = "contacts"
 
@@ -99,11 +112,19 @@ class LeadActivity(UUIDTimestampMixin, Base):
 class LeadTask(UUIDTimestampMixin, Base):
     __tablename__ = "lead_tasks"
 
-    lead_id: Mapped[UUID] = mapped_column(ForeignKey("leads.id"), index=True)
+    lead_id: Mapped[UUID | None] = mapped_column(ForeignKey("leads.id"), index=True)
+    contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus), default=TaskStatus.TODO)
+    priority: Mapped[TaskPriority] = mapped_column(Enum(TaskPriority), default=TaskPriority.NORMAL)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    responsible_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
     author_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    lead: Mapped[Lead] = relationship(back_populates="tasks")
+    kind: Mapped[str] = mapped_column(String(50), default="manual")
+    auto_key: Mapped[str | None] = mapped_column(String(160), unique=True, index=True)
+    lead: Mapped[Lead | None] = relationship(back_populates="tasks")
+    contact: Mapped[Contact | None] = relationship()
+    responsible_user: Mapped[User | None] = relationship(foreign_keys=[responsible_user_id])
     author: Mapped[User] = relationship(foreign_keys=[author_id])

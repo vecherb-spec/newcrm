@@ -143,11 +143,12 @@
         <button @click="section='contacts'; loadContacts()" :class="navClass('contacts')" class="block w-full rounded px-3 py-2 text-left">Контакты</button>
         <button @click="section='engineering'" :class="navClass('engineering')" class="block w-full rounded px-3 py-2 text-left">Расчеты и КП</button>
         <button @click="openPlaceholder('Финансы')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Финансы</button>
-        <button @click="openPlaceholder('Задачи')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Задачи</button>
+        <button @click="section='tasks'; loadTasks()" :class="navClass('tasks')" class="block w-full rounded px-3 py-2 text-left">Задачи</button>
         <button @click="openPlaceholder('Документы')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Документы</button>
         <button @click="openPlaceholder('Единый inbox')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Единый inbox</button>
         <button @click="openPlaceholder('Ассистент')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Ассистент</button>
       </nav>
+      <button @click="openTaskForm()" class="mt-5 w-full rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Быстрая задача</button>
       <div class="absolute bottom-5 left-5 right-5">
         <p class="truncate text-xs text-slate-400" x-text="user?.full_name"></p>
         <div class="mt-1 flex justify-between text-xs text-slate-600">
@@ -190,6 +191,18 @@
           <article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="text-xs text-slate-500">Просрочено</p><p class="mt-1 text-2xl font-semibold text-amber-400" x-text="overdueDeals().length"></p></article>
         </section>
 
+        <section class="mb-5 grid grid-cols-3 gap-3">
+          <button @click="section='tasks'; taskView='today'; loadTasks()" class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-left">
+            <p class="text-xs text-slate-500">Задачи сегодня</p><p class="mt-1 text-2xl font-semibold" x-text="taskDashboard.today"></p>
+          </button>
+          <button @click="section='tasks'; taskView='overdue'; loadTasks()" class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-left">
+            <p class="text-xs text-slate-500">Просроченные задачи</p><p class="mt-1 text-2xl font-semibold text-rose-400" x-text="taskDashboard.overdue"></p>
+          </button>
+          <button @click="loadProposalFlags()" class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-left">
+            <p class="text-xs text-slate-500">КП без ответа</p><p class="mt-1 text-2xl font-semibold text-amber-400" x-text="taskDashboard.no_response_proposals"></p>
+          </button>
+        </section>
+
         <section class="flex gap-3 overflow-x-auto pb-5">
           <template x-for="stage in stages" :key="stage.code">
             <div class="w-72 shrink-0 rounded-xl border border-slate-800 bg-slate-900/60" @dragover.prevent @drop="dropLead(stage.code)">
@@ -215,6 +228,66 @@
                 </template>
               </div>
             </div>
+          </template>
+        </section>
+      </section>
+
+      <section x-show="section==='tasks'">
+        <header class="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-cyan-500">Рабочий день</p>
+            <h1 class="text-2xl font-semibold">Задачи</h1>
+          </div>
+          <div class="flex gap-2">
+            <button @click="taskMode='list'" :class="taskMode==='list' ? 'bg-cyan-500 text-white' : 'bg-slate-900'" class="rounded-lg border border-slate-800 px-4 py-2 text-sm">Список</button>
+            <button @click="taskMode='calendar'; loadTaskCalendar()" :class="taskMode==='calendar' ? 'bg-cyan-500 text-white' : 'bg-slate-900'" class="rounded-lg border border-slate-800 px-4 py-2 text-sm">Календарь</button>
+            <button @click="openTaskForm()" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Задача</button>
+          </div>
+        </header>
+
+        <section class="mb-5 grid grid-cols-4 gap-3">
+          <article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="text-xs text-slate-500">Сегодня</p><p class="mt-1 text-2xl font-semibold" x-text="taskDashboard.today"></p></article>
+          <article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="text-xs text-slate-500">Просрочено</p><p class="mt-1 text-2xl font-semibold text-rose-400" x-text="taskDashboard.overdue"></p></article>
+          <article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="text-xs text-slate-500">На неделю</p><p class="mt-1 text-2xl font-semibold" x-text="taskDashboard.week"></p></article>
+          <article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="text-xs text-slate-500">КП без ответа</p><p class="mt-1 text-2xl font-semibold text-amber-400" x-text="taskDashboard.no_response_proposals"></p></article>
+        </section>
+
+        <section x-show="taskMode==='list'" class="rounded-xl border border-slate-800 bg-slate-900">
+          <div class="flex flex-wrap gap-2 border-b border-slate-800 p-4">
+            <template x-for="view in taskViews" :key="view.code">
+              <button @click="taskView=view.code; loadTasks()" :class="taskView===view.code ? 'bg-cyan-500 text-white' : 'bg-slate-800'" class="rounded-lg px-3 py-2 text-sm" x-text="view.label"></button>
+            </template>
+          </div>
+          <div class="divide-y divide-slate-800">
+            <template x-for="task in tasks" :key="task.id">
+              <article class="flex flex-wrap items-start gap-3 p-4 hover:bg-slate-800/40">
+                <button @click="completeTask(task)" :class="task.status==='DONE' ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'" class="mt-1 grid h-5 w-5 place-items-center rounded border text-xs text-white" x-text="task.status==='DONE' ? '✓' : ''"></button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="font-semibold" :class="task.status==='DONE' ? 'line-through text-slate-500' : ''" x-text="task.title"></h3>
+                    <span class="rounded bg-slate-800 px-2 py-0.5 text-xs" x-text="priorityLabel(task.priority)"></span>
+                    <span x-show="isTaskOverdue(task)" class="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">просрочено</span>
+                  </div>
+                  <p class="mt-1 text-sm text-slate-500">
+                    <span x-text="task.due_at ? dateTime(task.due_at) : 'Без срока'"></span>
+                    <span x-show="task.lead"> · Сделка: <span x-text="task.lead?.title"></span></span>
+                    <span x-show="task.contact"> · Клиент: <span x-text="task.contact?.name"></span></span>
+                  </p>
+                </div>
+                <span class="text-sm text-slate-500" x-text="task.responsible_user?.full_name || 'Без ответственного'"></span>
+              </article>
+            </template>
+            <p x-show="!tasks.length" class="p-8 text-center text-sm text-slate-600">Задач в этом представлении нет</p>
+          </div>
+        </section>
+
+        <section x-show="taskMode==='calendar'" class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <template x-for="task in taskCalendar" :key="task.id">
+            <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <p class="text-xs text-cyan-500" x-text="task.due_at ? dateTime(task.due_at) : 'Без срока'"></p>
+              <h3 class="mt-2 font-semibold" x-text="task.title"></h3>
+              <p class="mt-2 text-sm text-slate-500" x-text="task.lead?.title || task.contact?.name || 'Самостоятельная задача'"></p>
+            </article>
           </template>
         </section>
       </section>
@@ -290,6 +363,28 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div x-cloak x-show="showTaskForm" class="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showTaskForm=false">
+    <form @submit.prevent="createStandaloneTask" class="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-6">
+      <h2 class="text-lg font-semibold">Быстрая задача</h2>
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <input x-model="newStandaloneTask.title" required minlength="2" placeholder="Что нужно сделать" class="col-span-2 rounded border border-slate-700 bg-slate-950 px-4 py-2">
+        <input x-model="newStandaloneTask.due_at" type="datetime-local" class="rounded border border-slate-700 bg-slate-950 px-4 py-2">
+        <select x-model="newStandaloneTask.priority" class="rounded border border-slate-700 bg-slate-950 px-4 py-2">
+          <template x-for="item in priorities" :key="item.code"><option :value="item.code" x-text="item.label"></option></template>
+        </select>
+        <select x-model="newStandaloneTask.responsible_user_id" class="rounded border border-slate-700 bg-slate-950 px-4 py-2">
+          <option value="">Ответственный: я</option>
+          <template x-for="employee in users" :key="employee.id"><option :value="employee.id" x-text="employee.full_name"></option></template>
+        </select>
+        <select x-model="newStandaloneTask.lead_id" class="rounded border border-slate-700 bg-slate-950 px-4 py-2">
+          <option value="">Без сделки</option>
+          <template x-for="lead in leads" :key="lead.id"><option :value="lead.id" x-text="lead.title"></option></template>
+        </select>
+      </div>
+      <div class="mt-5 flex justify-end gap-3"><button type="button" @click="showTaskForm=false" class="px-4 py-2 text-sm text-slate-400">Отмена</button><button class="rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Создать задачу</button></div>
+    </form>
   </div>
 
   <div x-cloak x-show="showLeadForm" class="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showLeadForm=false">
@@ -369,18 +464,22 @@
   <script>
     function crmApp() {
       return {
-        token: localStorage.getItem('ledops_token') || '', user: null, users: [], leads: [], contacts: [], calculations: [],
-        section: 'pipeline', placeholderTitle: '', error: '', bootstrap: false, showLeadForm: false, showContactForm: false, selectedLead: null,
+        token: localStorage.getItem('ledops_token') || '', user: null, users: [], leads: [], contacts: [], calculations: [], tasks: [], taskCalendar: [],
+        section: 'pipeline', placeholderTitle: '', error: '', bootstrap: false, showLeadForm: false, showContactForm: false, showTaskForm: false, selectedLead: null,
         draggingLeadId: null, contactQuery: '', calculationResult: null, calculationName: '', calculationLeadId: '',
         credentials: {email: '', password: '', full_name: ''},
         filters: {query: '', stage: '', responsible_user_id: '', overdue: false},
         newContact: {name: '', phone: '', email: '', company: ''},
         newLead: {}, dealForm: {}, newActivity: {type: 'CALL', body: ''}, newTask: {title: '', due_at: ''},
+        newStandaloneTask: {title: '', due_at: '', responsible_user_id: '', lead_id: '', priority: 'NORMAL'},
+        taskView: 'today', taskMode: 'list', taskDashboard: {today: 0, overdue: 0, week: 0, no_response_proposals: 0},
         calculationInput: {width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000, cabinet_width_mm: 500, cabinet_height_mm: 500, power_redundancy_percent: 15, target_margin_percent: 30},
         stages: [
           ['NEW','Новый'],['QUALIFICATION','Квалификация'],['CALCULATION','Расчет'],['PROPOSAL_SENT','КП отправлено'],['NEGOTIATION','Переговоры'],['CLOSED_WON','Закрыто успешно'],['CLOSED_LOST','Закрыто и не реализовано']
         ].map(([code,label]) => ({code,label})),
         activityTypes: [['CALL','Звонок'],['MESSAGE','Сообщение'],['MEETING','Встреча'],['COMMENT','Комментарий']].map(([code,label]) => ({code,label})),
+        taskViews: [['today','Сегодня'],['overdue','Просрочено'],['week','Неделя'],['all','Все']].map(([code,label]) => ({code,label})),
+        priorities: [['LOW','Низкий'],['NORMAL','Обычный'],['HIGH','Высокий'],['URGENT','Срочно']].map(([code,label]) => ({code,label})),
         navClass(name) { return this.section === name ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'; },
         openPlaceholder(title) { this.placeholderTitle = title; this.section = 'placeholder'; },
         resetLeadForm() { this.newLead = {title: '', contact_name: '', contact_phone: '', contact_company: '', source: 'manual', amount: null, responsible_user_id: this.user?.id || '', next_contact_at: '', raw_text: ''}; },
@@ -395,7 +494,7 @@
         iso(value) { return value ? new Date(value).toISOString() : null; },
         async init() {
           if (!this.token) return;
-          try { this.user = await this.api('/auth/me'); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations()]); this.resetLeadForm(); }
+          try { this.user = await this.api('/auth/me'); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
           catch (error) { this.error = error.message; }
         },
         async authenticate() {
@@ -419,6 +518,10 @@
         },
         async loadContacts() { const params = this.contactQuery ? `?query=${encodeURIComponent(this.contactQuery)}` : ''; this.contacts = await this.api(`/contacts${params}`); },
         async loadCalculations() { this.calculations = await this.api('/calculations'); },
+        async loadTaskDashboard() { this.taskDashboard = await this.api('/tasks/dashboard'); },
+        async loadTasks() { await this.loadTaskDashboard(); this.tasks = await this.api(`/tasks?view=${this.taskView}`); },
+        async loadTaskCalendar() { await this.loadTaskDashboard(); this.taskCalendar = await this.api('/tasks/calendar'); },
+        openTaskForm() { this.newStandaloneTask = {title:'', due_at:'', responsible_user_id:this.user?.id || '', lead_id:'', priority:'NORMAL'}; this.showTaskForm = true; },
         byStage(code) { return this.leads.filter(lead => lead.status === code); },
         openDeals() { return this.leads.filter(lead => !['CLOSED_WON','CLOSED_LOST'].includes(lead.status)); },
         overdueDeals() { return this.leads.filter(lead => this.isOverdue(lead)); },
@@ -426,7 +529,7 @@
         isOverdue(lead) { return lead.next_contact_at && new Date(lead.next_contact_at) < new Date() && !['CLOSED_WON','CLOSED_LOST'].includes(lead.status); },
         openLeadForm() { this.resetLeadForm(); this.showLeadForm = true; },
         async createLead() {
-          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; }
+          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; await this.loadTaskDashboard(); }
           catch (error) { this.error = error.message; }
         },
         async createContact() {
@@ -438,14 +541,19 @@
         async openDeal(id) { this.selectedLead = await this.api(`/leads/${id}`); this.dealForm = {title:this.selectedLead.title, status:this.selectedLead.status, amount:this.selectedLead.amount, responsible_user_id:this.selectedLead.responsible_user_id || '', source:this.selectedLead.source, next_contact_at:this.toLocalInput(this.selectedLead.next_contact_at), lost_reason:this.selectedLead.lost_reason || ''}; this.calculationLeadId = id; },
         async saveDeal() { try { const payload = {...this.dealForm, responsible_user_id:this.dealForm.responsible_user_id || null, next_contact_at:this.iso(this.dealForm.next_contact_at), amount:this.dealForm.amount || null}; const updated = await this.api(`/leads/${this.selectedLead.id}`, this.jsonOptions(payload, 'PATCH')); Object.assign(this.leads.find(lead => lead.id === updated.id) || {}, updated); await this.openDeal(updated.id); } catch (error) { this.error = error.message; } },
         async createActivity() { try { await this.api(`/leads/${this.selectedLead.id}/activities`, this.jsonOptions(this.newActivity)); this.newActivity = {type:'CALL', body:''}; await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
-        async createTask() { try { await this.api(`/leads/${this.selectedLead.id}/tasks`, this.jsonOptions({title:this.newTask.title, due_at:this.iso(this.newTask.due_at)})); this.newTask = {title:'', due_at:''}; await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
-        async toggleLeadTask(task) { try { await this.api(`/leads/${this.selectedLead.id}/tasks/${task.id}`, this.jsonOptions({is_completed: !task.is_completed}, 'PATCH')); await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
+        async createTask() { try { await this.api(`/leads/${this.selectedLead.id}/tasks`, this.jsonOptions({title:this.newTask.title, due_at:this.iso(this.newTask.due_at), priority:'NORMAL'})); this.newTask = {title:'', due_at:''}; await this.openDeal(this.selectedLead.id); await this.loadTaskDashboard(); } catch (error) { this.error = error.message; } },
+        async createStandaloneTask() { try { const payload = {...this.newStandaloneTask, due_at:this.iso(this.newStandaloneTask.due_at), responsible_user_id:this.newStandaloneTask.responsible_user_id || null, lead_id:this.newStandaloneTask.lead_id || null}; await this.api('/tasks', this.jsonOptions(payload)); this.showTaskForm=false; await this.loadTasks(); } catch (error) { this.error = error.message; } },
+        async completeTask(task) { try { await this.api(`/tasks/${task.id}/complete`, this.jsonOptions({})); await this.loadTasks(); if (this.selectedLead) await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
+        async toggleLeadTask(task) { try { if (!task.is_completed) await this.api(`/tasks/${task.id}/complete`, this.jsonOptions({})); else await this.api(`/leads/${this.selectedLead.id}/tasks/${task.id}`, this.jsonOptions({is_completed:false}, 'PATCH')); await this.openDeal(this.selectedLead.id); await this.loadTaskDashboard(); } catch (error) { this.error = error.message; } },
         async calculateScreen() { try { this.calculationResult = await this.api('/calculations/screen', this.jsonOptions(this.calculationInput)); } catch (error) { this.error = error.message; } },
         async saveCalculation() { try { const saved = await this.api('/calculations', this.jsonOptions({name:this.calculationName, lead_id:this.calculationLeadId || null, parameters:this.calculationInput})); this.calculations.unshift(saved); this.calculationName = ''; if (this.selectedLead) await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
         loadCalculation(item) { this.calculationInput = JSON.parse(JSON.stringify(item.parameters)); this.calculationResult = JSON.parse(JSON.stringify(item.result)); this.calculationLeadId = item.lead_id || ''; this.calculationName = `${item.name} — копия`; },
         async downloadDocument(path, filename) { try { const response = await fetch(`/api/v1${path}`, {headers:{Authorization:`Bearer ${this.token}`}}); if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка документа'); const url = URL.createObjectURL(await response.blob()), link = document.createElement('a'); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (error) { this.error = error.message; } },
         money(value) { return new Intl.NumberFormat('ru-RU', {style:'currency', currency:'RUB', maximumFractionDigits:0}).format(Number(value || 0)); },
         dateTime(value) { return value ? new Date(value).toLocaleString('ru-RU') : '—'; },
+        isTaskOverdue(task) { return task.due_at && new Date(task.due_at) < new Date() && task.status !== 'DONE'; },
+        priorityLabel(code) { return this.priorities.find(item => item.code === code)?.label || code; },
+        async loadProposalFlags() { this.section='tasks'; this.taskView='all'; await this.loadTasks(); },
         toLocalInput(value) { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16); },
         activityTypeLabel(code) { return this.activityTypes.find(item => item.code === code)?.label || code; },
         resultMetrics() { const r = this.calculationResult; if (!r) return []; return [['Кабинеты', `${r.cabinet_columns} × ${r.cabinet_rows} = ${r.cabinet_count}`], ['Разрешение', `${r.resolution_width} × ${r.resolution_height}`], ['Пиковая мощность', `${r.peak_power_kw} кВт`], ['Цена продажи', this.money(r.suggested_sales_price)]]; }
