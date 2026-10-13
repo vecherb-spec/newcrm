@@ -40,6 +40,28 @@ class LeadStatus(StrEnum):
     CLOSED_LOST = "CLOSED_LOST"
 
 
+class LeadSpecFieldOptions(Base):
+    __tablename__ = "lead_spec_field_options"
+
+    field_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    options: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class CrmPricingSettings(Base):
+    __tablename__ = "crm_pricing_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    default_markup_coefficient: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4),
+        default=Decimal("1.35"),
+    )
+
+
 class LeadPipelineStage(Base):
     __tablename__ = "lead_pipeline_stages"
 
@@ -120,6 +142,7 @@ class Lead(UUIDTimestampMixin, Base):
     source: Mapped[str] = mapped_column(String(50), default="manual")
     raw_text: Mapped[str | None] = mapped_column(Text)
     parsed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    specs: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id"), index=True)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     responsible_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)

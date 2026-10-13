@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -84,6 +85,14 @@ class LeadCreate(BaseModel):
     lost_reason: str | None = None
     contract_signed: bool = False
     paid: bool = False
+    specs: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Структурированные поля LED-карточки (секции lead_client, screen, module, "
+            "structure, electronics, terms, files, pipeline, internal). "
+            "Схема: GET /api/v1/leads/spec-schema"
+        ),
+    )
 
 
 class LeadUpdate(BaseModel):
@@ -107,6 +116,10 @@ class LeadUpdate(BaseModel):
     lost_reason: str | None = None
     contract_signed: bool | None = None
     paid: bool | None = None
+    specs: Mapping[str, Any] | None = Field(
+        default=None,
+        description="Частичное обновление specs (deep merge). Внутренние поля — секция internal.",
+    )
 
 
 class LeadRead(LeadCreate):
@@ -190,6 +203,10 @@ class LeadDetail(LeadRead):
     calculations: list[CalculationSummary] = Field(default_factory=list)
     project_id: UUID | None = None
     ready_for_project: bool = False
+    specs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Поля карточки; секция internal только для сотрудников (не для PDF клиенту).",
+    )
 
 
 class AmoImportContact(BaseModel):

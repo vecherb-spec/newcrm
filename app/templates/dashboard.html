@@ -543,6 +543,12 @@
           </template>
         </ol>
         <form @submit.prevent="saveStageOrder()" class="mt-4"><button type="submit" class="rounded bg-slate-700 px-4 py-2 text-sm">Сохранить порядок списка</button></form>
+        <form @submit.prevent="saveDefaultMarkup()" class="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-4">
+          <p class="text-sm font-semibold">Наценка по умолчанию</p>
+          <p class="mt-1 text-xs text-slate-500">Для новых сделок (internal.markup_coefficient)</p>
+          <input x-model.number="pricingSettings.default_markup_coefficient" type="number" min="0.01" step="0.01" class="mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm">
+          <button type="submit" class="mt-2 rounded bg-cyan-600 px-3 py-1.5 text-sm text-white">Сохранить</button>
+        </form>
       </section>
 
       <section x-show="section==='placeholder'" class="grid min-h-[60vh] place-items-center">
@@ -606,54 +612,116 @@
     </form>
   </div>
 
-  <div x-cloak x-show="selectedLead" class="fixed inset-0 z-50 bg-slate-950/85 p-5" @keydown.escape.window="selectedLead=null">
-    <div class="mx-auto grid max-h-[94vh] max-w-6xl grid-cols-[minmax(0,1fr)_360px] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-      <section class="overflow-auto p-6">
-        <div class="mb-5 flex items-start justify-between gap-5">
-          <div><p class="text-xs uppercase tracking-widest text-cyan-500">Карточка сделки</p><h2 class="text-2xl font-semibold" x-text="selectedLead?.title"></h2><p class="mt-1 text-sm text-slate-500" x-text="selectedLead?.contact?.company || selectedLead?.contact?.name || 'Клиент не указан'"></p></div>
-          <button @click="selectedLead=null" class="rounded border border-slate-700 px-3 py-2 text-sm text-slate-400">Закрыть</button>
-        </div>
-
-        <form @submit.prevent="saveDeal" class="grid grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-950 p-4">
-          <input x-model="dealForm.title" required class="rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Название">
-          <select x-model="dealForm.status" class="rounded border border-slate-700 bg-slate-900 px-3 py-2"><template x-for="stage in stages" :key="stage.code"><option :value="stage.code" x-text="stage.label"></option></template></select>
-          <input x-model.number="dealForm.amount" type="number" min="0" step="0.01" class="rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Сумма">
-          <select x-model="dealForm.responsible_user_id" class="rounded border border-slate-700 bg-slate-900 px-3 py-2"><option value="">Без ответственного</option><template x-for="employee in users" :key="employee.id"><option :value="employee.id" x-text="employee.full_name"></option></template></select>
-          <input x-model="dealForm.source" class="rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Источник">
-          <input x-model="dealForm.next_contact_at" type="datetime-local" class="rounded border border-slate-700 bg-slate-900 px-3 py-2">
-          <textarea x-model="dealForm.lost_reason" rows="2" class="col-span-2 rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Причина отказа"></textarea>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="dealForm.contract_signed" class="accent-emerald-500">Договор подписан</label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="dealForm.paid" class="accent-emerald-500">Оплачено</label>
-          <div class="col-span-2 flex flex-wrap gap-2">
-            <button type="button" x-show="selectedLead?.project_id" @click="openProject(selectedLead.project_id)" class="rounded border border-slate-700 px-3 py-2 text-sm text-cyan-400">Открыть проект</button>
-            <button type="button" x-show="!selectedLead?.project_id && selectedLead?.ready_for_project" @click="createProjectForDeal()" class="rounded border border-cyan-700 px-3 py-2 text-sm text-cyan-400">Создать проект</button>
+  <div x-cloak x-show="selectedLead" class="fixed inset-0 z-50 bg-slate-900/70 p-3 md:p-5" @keydown.escape.window="selectedLead=null">
+    <div class="mx-auto flex max-h-[96vh] max-w-[1400px] flex-col overflow-hidden rounded-2xl border border-slate-200/20 bg-slate-100 text-slate-900 shadow-2xl">
+      <header class="border-b border-slate-200 bg-white px-5 py-4">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <input x-model="dealForm.title" class="w-full border-0 bg-transparent text-2xl font-semibold outline-none focus:ring-0" placeholder="Название сделки">
+            <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+              <a x-show="selectedLead?.contact?.phone" :href="`tel:${selectedLead?.contact?.phone}`" class="text-cyan-700 hover:underline" x-text="selectedLead?.contact?.phone"></a>
+              <span x-show="selectedLead?.contact?.telegram" x-text="selectedLead?.contact?.telegram"></span>
+              <span x-text="selectedLead?.contact?.company || selectedLead?.contact?.name || 'Клиент не указан'"></span>
+            </div>
           </div>
-          <button class="col-span-2 rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Сохранить сделку</button>
-        </form>
-
-        <section class="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-          <h3 class="text-sm font-semibold">Клиент</h3>
-          <div class="mt-3 grid grid-cols-2 gap-3 text-sm"><p><span class="text-slate-500">Имя:</span> <span x-text="selectedLead?.contact?.name || '—'"></span></p><p><span class="text-slate-500">Телефон:</span> <span x-text="selectedLead?.contact?.phone || '—'"></span></p><p><span class="text-slate-500">Email:</span> <span x-text="selectedLead?.contact?.email || '—'"></span></p><p><span class="text-slate-500">Компания:</span> <span x-text="selectedLead?.contact?.company || '—'"></span></p></div>
-        </section>
-
-        <section class="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-          <div class="flex items-center justify-between"><h3 class="text-sm font-semibold">Заметки и касания</h3><span class="text-xs text-slate-600" x-text="`${selectedLead?.activities?.length || 0} записей`"></span></div>
-          <form @submit.prevent="createActivity" class="mt-3 grid grid-cols-[180px_1fr_auto] gap-2"><select x-model="newActivity.type" class="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"><template x-for="item in activityTypes" :key="item.code"><option :value="item.code" x-text="item.label"></option></template></select><input x-model="newActivity.body" required placeholder="Что произошло с клиентом" class="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"><button class="rounded bg-slate-700 px-3 text-sm">Добавить</button></form>
-          <div class="mt-4 space-y-3"><template x-for="activity in selectedLead?.activities || []" :key="activity.id"><article class="rounded-lg border border-slate-800 bg-slate-900 p-3"><div class="flex justify-between text-xs text-slate-500"><span x-text="activityTypeLabel(activity.type)"></span><span x-text="`${activity.author?.full_name || 'Сотрудник'} · ${dateTime(activity.occurred_at)}`"></span></div><p class="mt-2 text-sm" x-text="activity.body"></p></article></template><p x-show="!selectedLead?.activities?.length" class="text-sm text-slate-600">История касаний пока пуста</p></div>
-        </section>
-      </section>
-
-      <aside class="overflow-auto border-l border-slate-800 bg-slate-950 p-5">
-        <section>
-          <h3 class="text-sm font-semibold">Задачи и напоминания</h3>
-          <form @submit.prevent="createTask" class="mt-3 space-y-2"><input x-model="newTask.title" required minlength="2" placeholder="Например: позвонить по КП" class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"><input x-model="newTask.due_at" type="datetime-local" class="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm"><button class="w-full rounded bg-cyan-500 py-2 text-sm font-semibold text-slate-950">Добавить задачу</button></form>
-          <div class="mt-4 space-y-2"><template x-for="task in selectedLead?.tasks || []" :key="task.id"><label class="flex gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm"><input type="checkbox" :checked="task.is_completed" @change="toggleLeadTask(task)" class="mt-1 accent-emerald-500"><span class="min-w-0"><span class="block" :class="task.is_completed ? 'line-through text-slate-600' : ''" x-text="task.title"></span><span class="text-xs text-slate-500" x-text="task.due_at ? dateTime(task.due_at) : 'Без срока'"></span></span></label></template><p x-show="!selectedLead?.tasks?.length" class="text-sm text-slate-600">Задач пока нет</p></div>
-        </section>
-        <section class="mt-6">
-          <h3 class="text-sm font-semibold">Расчеты и КП</h3>
-          <div class="mt-3 space-y-2"><template x-for="calc in selectedLead?.calculations || []" :key="calc.id"><article class="rounded-lg border border-slate-800 bg-slate-900 p-3"><p class="text-sm font-medium" x-text="calc.name"></p><p class="mt-1 text-xs text-emerald-400" x-text="money(calc.suggested_sales_price)"></p><button @click="downloadDocument(`/documents/quotes/${calc.id}.pdf`,`kp-${calc.id}.pdf`)" class="mt-2 rounded border border-slate-700 px-2 py-1 text-xs text-cyan-400">Скачать КП</button></article></template><p x-show="!selectedLead?.calculations?.length" class="text-sm text-slate-600">Расчеты не привязаны</p></div>
-        </section>
-      </aside>
+          <div class="flex flex-wrap items-center gap-2">
+            <select x-model="dealForm.status" @change="saveDeal()" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium"><template x-for="stage in stages" :key="stage.code"><option :value="stage.code" x-text="stage.label"></option></template></select>
+            <input x-model.number="dealForm.amount" @change="saveDeal()" type="number" min="0" step="0.01" class="w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Сумма ₽">
+            <select x-model="dealForm.responsible_user_id" @change="saveDeal()" class="max-w-[200px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="">Ответственный</option><template x-for="employee in users" :key="employee.id"><option :value="employee.id" x-text="employee.full_name"></option></template></select>
+            <button @click="selectedLead=null" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600">Закрыть</button>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+          <button type="button" @click="dealCardTab='timeline'" :class="dealCardTab==='timeline' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Лента</button>
+          <button type="button" @click="dealCardTab='files'" :class="dealCardTab==='files' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Файлы</button>
+          <button type="button" @click="dealCardTab='tasks'" :class="dealCardTab==='tasks' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Задачи</button>
+        </div>
+      </header>
+      <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[340px_1fr_300px]">
+        <aside class="overflow-auto border-r border-slate-200 bg-white p-4">
+          <template x-for="section in visibleSpecSections()" :key="section.id">
+            <details class="mb-3 rounded-xl border border-slate-200" :open="!collapsedSpecSections[section.id]">
+              <summary @click.prevent="toggleSpecSection(section.id)" class="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-800" x-text="section.title"></summary>
+              <div class="space-y-2 border-t border-slate-100 px-3 py-3">
+                <template x-for="field in section.fields" :key="field.key">
+                  <label class="block text-xs text-slate-500" x-show="!field.computed">
+                    <span x-text="field.label + (field.unit ? ` (${field.unit})` : '')"></span>
+                    <template x-if="field.type === 'select'">
+                      <select class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900" :value="specField(section.id, field.key)" @change="setSpecField(section.id, field.key, $event.target.value)">
+                        <option value="">—</option>
+                        <template x-for="opt in (field.options || [])" :key="opt"><option :value="opt" x-text="opt"></option></template>
+                      </select>
+                    </template>
+                    <template x-if="field.type === 'boolean'">
+                      <input type="checkbox" class="mt-1 accent-cyan-600" :checked="!!specField(section.id, field.key)" @change="setSpecField(section.id, field.key, $event.target.checked)">
+                    </template>
+                    <template x-if="!['select','boolean'].includes(field.type) && !field.computed">
+                      <input :type="field.type === 'number' || field.type === 'integer' ? 'number' : (field.type === 'date' ? 'date' : 'text')" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm" :value="specField(section.id, field.key) ?? ''" @change="setSpecField(section.id, field.key, $event.target.value)">
+                    </template>
+                    <template x-if="field.computed">
+                      <p class="mt-1 text-sm font-medium text-slate-800" x-text="specField(section.id, field.key) || '—'"></p>
+                    </template>
+                  </label>
+                </template>
+              </div>
+            </details>
+          </template>
+          <button type="button" @click="saveSpecs()" class="mt-2 w-full rounded-lg bg-cyan-600 py-2 text-sm font-semibold text-white">Сохранить поля</button>
+        </aside>
+        <main class="overflow-auto bg-slate-50 p-4">
+          <section x-show="dealCardTab==='timeline'">
+            <form @submit.prevent="createActivity" class="mb-4 flex gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <select x-model="newActivity.type" class="rounded border border-slate-300 px-2 py-1 text-sm"><template x-for="item in activityTypes" :key="item.code"><option :value="item.code" x-text="item.label"></option></template></select>
+              <input x-model="newActivity.body" required placeholder="Заметка по сделке" class="min-w-0 flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm">
+              <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white">Добавить</button>
+            </form>
+            <div class="space-y-3">
+              <template x-for="event in dealTimeline" :key="event.kind + (event.meta?.message_id || event.meta?.activity_id || event.meta?.task_id) + event.at">
+                <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex justify-between text-xs text-slate-500"><span x-text="event.kind"></span><span x-text="dateTime(event.at)"></span></div>
+                  <p class="mt-1 text-sm font-medium text-slate-900" x-text="event.title"></p>
+                  <p class="mt-1 text-sm text-slate-700" x-text="event.body"></p>
+                  <p class="mt-1 text-xs text-slate-400" x-show="event.author" x-text="event.author"></p>
+                </article>
+              </template>
+              <p x-show="!dealTimeline.length" class="text-center text-sm text-slate-500">Лента пуста</p>
+            </div>
+          </section>
+          <section x-show="dealCardTab==='files'" class="space-y-3">
+            <form @submit.prevent="uploadDealFile" class="rounded-xl border border-dashed border-slate-300 bg-white p-4">
+              <input type="file" @change="dealFileInput = $event.target.files[0]" class="text-sm">
+              <select x-model="dealFileKind" class="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm"><option value="kp_pdf">КП PDF</option><option value="calc_json">JSON расчёта</option><option value="client_photo">ТЗ / фото</option><option value="other">Другое</option></select>
+              <button class="mt-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white">Загрузить</button>
+            </form>
+            <template x-for="file in dealFiles()" :key="file.id">
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" x-text="`${file.kind}: ${file.name}`"></div>
+            </template>
+            <template x-for="calc in selectedLead?.calculations || []" :key="calc.id">
+              <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                <span x-text="calc.name"></span>
+                <button type="button" @click="downloadDocument(`/documents/quotes/${calc.id}.pdf`,`kp-${calc.id}.pdf`)" class="text-cyan-700 text-xs">PDF КП</button>
+              </div>
+            </template>
+          </section>
+          <section x-show="dealCardTab==='tasks'">
+            <form @submit.prevent="createTask" class="mb-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3"><input x-model="newTask.title" required class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="Задача"><input x-model="newTask.due_at" type="datetime-local" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"><button class="w-full rounded-lg bg-cyan-600 py-2 text-sm font-semibold text-white">Добавить</button></form>
+            <template x-for="task in selectedLead?.tasks || []" :key="task.id">
+              <label class="mb-2 flex gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm"><input type="checkbox" :checked="task.is_completed" @change="toggleLeadTask(task)" class="accent-cyan-600"><span><span class="block font-medium" x-text="task.title"></span><span class="text-xs text-slate-500" x-text="task.due_at ? dateTime(task.due_at) : 'Без срока'"></span></span></label>
+            </template>
+          </section>
+        </main>
+        <aside class="hidden overflow-auto border-l border-slate-200 bg-white p-4 lg:block">
+          <h3 class="text-sm font-semibold text-slate-800">Задачи</h3>
+          <template x-for="task in selectedLead?.tasks || []" :key="'side-'+task.id">
+            <p class="mt-2 text-sm text-slate-700" x-text="task.title"></p>
+            <p class="text-xs text-slate-500" x-text="task.due_at ? dateTime(task.due_at) : ''"></p>
+          </template>
+          <div class="mt-6 border-t border-slate-100 pt-4">
+            <button type="button" x-show="selectedLead?.project_id" @click="openProject(selectedLead.project_id)" class="text-sm text-cyan-700">Проект</button>
+            <button type="button" x-show="selectedLead?.ready_for_project" @click="createProjectForDeal()" class="ml-2 text-sm text-cyan-700">Создать проект</button>
+          </div>
+        </aside>
+      </div>
     </div>
   </div>
 
@@ -676,6 +744,8 @@
         taskView: 'today', taskMode: 'list', taskDashboard: {today: 0, overdue: 0, week: 0, no_response_proposals: 0},
         calculationInput: {width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000, cabinet_width_mm: 500, cabinet_height_mm: 500, power_redundancy_percent: 15, target_margin_percent: 30},
         stages: [],
+        specSchema: null, dealSpecs: {}, dealTimeline: [], dealCardTab: 'timeline', collapsedSpecSections: {},
+        dealFileInput: null, dealFileKind: 'kp_pdf', pricingSettings: {default_markup_coefficient: 1.35},
         activityTypes: [['CALL','Звонок'],['MESSAGE','Сообщение'],['MEETING','Встреча'],['COMMENT','Комментарий']].map(([code,label]) => ({code,label})),
         taskViews: [['today','Сегодня'],['overdue','Просрочено'],['week','Неделя'],['all','Все']].map(([code,label]) => ({code,label})),
         priorities: [['LOW','Низкий'],['NORMAL','Обычный'],['HIGH','Высокий'],['URGENT','Срочно']].map(([code,label]) => ({code,label})),
@@ -694,7 +764,7 @@
         iso(value) { return value ? new Date(value).toISOString() : null; },
         async init() {
           if (!this.token) return;
-          try { this.user = await this.api('/auth/me'); await this.loadStages(); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
+          try { this.user = await this.api('/auth/me'); await this.loadStages(); await this.loadSpecSchema(); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
           catch (error) { this.error = error.message; }
         },
         async authenticate() {
@@ -726,6 +796,14 @@
           try {
             await this.api('/leads/stages/reorder', this.jsonOptions({codes: this.stages.map(item => item.code)}, 'PUT'));
             await this.loadStages();
+          } catch (error) { this.error = error.message; }
+        },
+        async saveDefaultMarkup() {
+          try {
+            this.pricingSettings = await this.api(
+              '/leads/pricing-settings',
+              this.jsonOptions({default_markup_coefficient: this.pricingSettings.default_markup_coefficient}, 'PATCH'),
+            );
           } catch (error) { this.error = error.message; }
         },
         async loadLeads() {
@@ -763,7 +841,77 @@
         },
         async dropLead(status) { if (!this.draggingLeadId) return; const lead = this.leads.find(item => item.id === this.draggingLeadId); this.draggingLeadId = null; if (lead && lead.status !== status) await this.updateLeadStatus(lead, status); },
         async updateLeadStatus(lead, status) { const previous = lead.status; lead.status = status; try { Object.assign(lead, await this.api(`/leads/${lead.id}`, this.jsonOptions({status}, 'PATCH'))); } catch (error) { lead.status = previous; this.error = error.message; } },
-        async openDeal(id) { this.selectedLead = await this.api(`/leads/${id}`); this.dealForm = {title:this.selectedLead.title, status:this.selectedLead.status, amount:this.selectedLead.amount, responsible_user_id:this.selectedLead.responsible_user_id || '', source:this.selectedLead.source, next_contact_at:this.toLocalInput(this.selectedLead.next_contact_at), lost_reason:this.selectedLead.lost_reason || '', contract_signed:this.selectedLead.contract_signed, paid:this.selectedLead.paid}; this.calculationLeadId = id; },
+        async loadSpecSchema() {
+          this.specSchema = await this.api('/leads/spec-schema');
+          if (this.user?.role === 'ADMIN') {
+            try { this.pricingSettings = await this.api('/leads/pricing-settings'); } catch (_) {}
+          }
+        },
+        visibleSpecSections() {
+          if (!this.specSchema?.sections) return [];
+          return this.specSchema.sections.filter(section => section.id !== 'files');
+        },
+        toggleSpecSection(id) { this.collapsedSpecSections[id] = !this.collapsedSpecSections[id]; },
+        specField(sectionId, key) {
+          const section = sectionId === 'internal' ? (this.dealSpecs.internal || {}) : (this.dealSpecs[sectionId] || {});
+          return section[key];
+        },
+        setSpecField(sectionId, key, value) {
+          if (sectionId === 'internal') {
+            this.dealSpecs.internal = {...(this.dealSpecs.internal || {}), [key]: value};
+          } else {
+            this.dealSpecs[sectionId] = {...(this.dealSpecs[sectionId] || {}), [key]: value};
+          }
+          if (sectionId === 'internal' && ['purchase_cost_rub', 'markup_coefficient'].includes(key)) {
+            this.recalcDealPricingPreview();
+          }
+        },
+        recalcDealPricingPreview() {
+          const internal = this.dealSpecs.internal || {};
+          const purchase = Number(internal.purchase_cost_rub);
+          let markup = Number(internal.markup_coefficient || this.pricingSettings.default_markup_coefficient || 1.35);
+          if (!internal.markup_coefficient) internal.markup_coefficient = markup;
+          if (!purchase || !markup) return;
+          const screen = Math.round(purchase * markup * 100) / 100;
+          const margin = Math.round((screen - purchase) * 100) / 100;
+          internal.screen_price_rub = screen;
+          internal.margin_rub = margin;
+          internal.margin_percent = screen ? Math.round((margin / screen) * 10000) / 100 : 0;
+          this.dealSpecs.internal = internal;
+        },
+        dealFiles() { return this.dealSpecs?.files?.attachments || []; },
+        async openDeal(id) {
+          this.selectedLead = await this.api(`/leads/${id}`);
+          this.dealSpecs = JSON.parse(JSON.stringify(this.selectedLead.specs || {}));
+          if (!this.dealSpecs.internal) this.dealSpecs.internal = {};
+          if (!this.dealSpecs.internal.markup_coefficient) {
+            this.dealSpecs.internal.markup_coefficient = this.pricingSettings.default_markup_coefficient || 1.35;
+          }
+          this.dealForm = {title:this.selectedLead.title, status:this.selectedLead.status, amount:this.selectedLead.amount, responsible_user_id:this.selectedLead.responsible_user_id || '', source:this.selectedLead.source, next_contact_at:this.toLocalInput(this.selectedLead.next_contact_at), lost_reason:this.selectedLead.lost_reason || '', contract_signed:this.selectedLead.contract_signed, paid:this.selectedLead.paid};
+          this.dealCardTab = 'timeline';
+          this.dealTimeline = await this.api(`/leads/${id}/timeline`);
+          this.calculationLeadId = id;
+        },
+        async saveSpecs() {
+          try {
+            const updated = await this.api(`/leads/${this.selectedLead.id}`, this.jsonOptions({specs: this.dealSpecs}, 'PATCH'));
+            this.selectedLead = updated;
+            this.dealSpecs = JSON.parse(JSON.stringify(updated.specs || {}));
+            if (updated.amount) this.dealForm.amount = updated.amount;
+            const idx = this.leads.findIndex(lead => lead.id === updated.id);
+            if (idx >= 0) Object.assign(this.leads[idx], updated);
+          } catch (error) { this.error = error.message; }
+        },
+        async uploadDealFile() {
+          try {
+            if (!this.dealFileInput) throw new Error('Выберите файл');
+            const body = new FormData();
+            body.append('file', this.dealFileInput);
+            const response = await fetch(`/api/v1/leads/${this.selectedLead.id}/files?kind=${encodeURIComponent(this.dealFileKind)}`, {method:'POST', headers:{Authorization:`Bearer ${this.token}`}, body});
+            if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка загрузки');
+            await this.openDeal(this.selectedLead.id);
+          } catch (error) { this.error = error.message; }
+        },
         async saveDeal() { try { const payload = {...this.dealForm, responsible_user_id:this.dealForm.responsible_user_id || null, next_contact_at:this.iso(this.dealForm.next_contact_at), amount:this.dealForm.amount || null}; const updated = await this.api(`/leads/${this.selectedLead.id}`, this.jsonOptions(payload, 'PATCH')); Object.assign(this.leads.find(lead => lead.id === updated.id) || {}, updated); await this.openDeal(updated.id); } catch (error) { this.error = error.message; } },
         async createActivity() { try { await this.api(`/leads/${this.selectedLead.id}/activities`, this.jsonOptions(this.newActivity)); this.newActivity = {type:'CALL', body:''}; await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
         async createTask() { try { await this.api(`/leads/${this.selectedLead.id}/tasks`, this.jsonOptions({title:this.newTask.title, due_at:this.iso(this.newTask.due_at), priority:'NORMAL'})); this.newTask = {title:'', due_at:''}; await this.openDeal(this.selectedLead.id); await this.loadTaskDashboard(); } catch (error) { this.error = error.message; } },

@@ -11,6 +11,11 @@ from app.core.database import get_session
 from app.modules.auth.models import User
 from app.modules.auth.router import CurrentUser
 from app.modules.calculator.models import EngineeringCalculation
+from app.modules.crm.lead_specs.service import (
+    merge_lead_specs,
+    split_specs_for_response,
+    sync_lead_amount_from_specs,
+)
 from app.modules.crm.models import (
     ActivityType,
     Contact,
@@ -36,6 +41,7 @@ from app.modules.crm.schemas import (
     LeadTaskUpdate,
     LeadUpdate,
 )
+from app.modules.crm.specs_router import router as specs_router
 from app.modules.crm.stages_router import router as stages_router
 from app.modules.crm.stages_service import (
     resolve_stage_code,
@@ -51,6 +57,7 @@ from app.modules.tasks.service import sync_next_contact_task, utc_now
 
 router = APIRouter(tags=["CRM"])
 router.include_router(stages_router)
+router.include_router(specs_router)
 
 ACTIVITY_ALIASES = {
     "звонок": "CALL",
@@ -183,7 +190,12 @@ def _lead_values(payload: LeadCreate | LeadUpdate) -> dict[str, object]:
     )
 
 
-async def _lead_detail(lead: Lead, session: AsyncSession) -> LeadDetail:
+async def _lead_detail(
+    lead: Lead,
+    session: AsyncSession,
+    *,
+    include_internal: bool = True,
+) -> LeadDetail:
     calculations = list(
         await session.scalars(
             select(EngineeringCalculation)
@@ -195,6 +207,7 @@ async def _lead_detail(lead: Lead, session: AsyncSession) -> LeadDetail:
     return LeadDetail.model_validate(
         {
             **LeadRead.model_validate(lead).model_dump(),
+            "specs": split_specs_for_response(lead.specs or {}, include_internal=include_internal),
             "activities": lead.activities,
             "tasks": lead.tasks,
             "calculations": [
@@ -316,7 +329,16 @@ async def create_lead(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     contact_id = await _contact_from_payload(payload, session)
-    lead = Lead(**_lead_values(payload), contact_id=contact_id)
+    values = _lead_values(payload)
+    specs = values.pop("specs", None)
+    lead = Lead(**values, contact_id=contact_id)
+    if specs:
+        lead.specs = await merge_lead_specs(
+            session,
+            {},
+            specs if isinstance(specs, dict) else {},
+        )
+        sync_lead_amount_from_specs(lead)
     session.add(lead)
     await session.flush()
     await sync_next_contact_task(lead, actor.id, session)
@@ -358,13 +380,34 @@ async def lookup_leads(
     return list(result)
 
 
-@router.get("/leads/{lead_id}", response_model=LeadDetail)
-async def get_lead(lead_id: UUID, session: AsyncSession = Depends(get_session)) -> LeadDetail:
+@router.get(
+    "/leads/{lead_id}",
+    response_model=LeadDetail,
+    summary="Карточка сделки",
+    description=(
+        "Возвращает сделку со specs (секции LED-карточки). "
+        "Справочник полей: GET /api/v1/leads/spec-schema. "
+        "Лента: GET /api/v1/leads/{id}/timeline."
+    ),
+)
+async def get_lead(
+    lead_id: UUID,
+    actor: CurrentUser,
+    session: AsyncSession = Depends(get_session),
+) -> LeadDetail:
     lead = await _require_lead(lead_id, session)
-    return await _lead_detail(lead, session)
+    return await _lead_detail(lead, session, include_internal=True)
 
 
-@router.patch("/leads/{lead_id}", response_model=LeadRead)
+@router.patch(
+    "/leads/{lead_id}",
+    response_model=LeadDetail,
+    summary="Обновить сделку и specs",
+    description=(
+        "Частичный PATCH; `specs` мержится по секциям. "
+        "Схема полей: GET /api/v1/leads/spec-schema."
+    ),
+)
 async def update_lead(
     lead_id: UUID,
     payload: LeadUpdate,
@@ -373,13 +416,29 @@ async def update_lead(
 ) -> Lead:
     lead = await _require_lead(lead_id, session)
     await _validate_user(payload.responsible_user_id, session)
+    previous_status = lead.status
     if payload.status is not None:
         try:
             await validate_stage_code(session, payload.status)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-    for field, value in _lead_values(payload).items():
+    values = _lead_values(payload)
+    if payload.specs is not None:
+        lead.specs = await merge_lead_specs(session, lead.specs, dict(payload.specs))
+        sync_lead_amount_from_specs(lead)
+        values.pop("specs", None)
+    for field, value in values.items():
         setattr(lead, field, value)
+    if payload.status is not None and payload.status != previous_status:
+        session.add(
+            LeadActivity(
+                lead_id=lead.id,
+                type=ActivityType.COMMENT,
+                body=f"[stage] {previous_status} → {payload.status}",
+                author_id=actor.id,
+                occurred_at=datetime.now(UTC),
+            )
+        )
     if payload.contact_id or any(
         field in payload.model_fields_set
         for field in ("contact_name", "contact_phone", "contact_email", "contact_company")
@@ -388,7 +447,8 @@ async def update_lead(
     await sync_next_contact_task(lead, actor.id, session)
     await maybe_auto_create_project(session, lead)
     await session.commit()
-    return await session.scalar(select(Lead).where(Lead.id == lead.id).options(*_lead_options()))
+    lead = await _require_lead(lead_id, session)
+    return await _lead_detail(lead, session, include_internal=True)
 
 
 @router.post("/leads/{lead_id}/create-project", status_code=status.HTTP_201_CREATED)
