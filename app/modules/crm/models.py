@@ -4,7 +4,18 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, UUIDTimestampMixin
@@ -12,13 +23,32 @@ from app.modules.auth.models import User
 
 
 class LeadStatus(StrEnum):
-    NEW = "NEW"
+    """Stable stage codes (see lead_pipeline_stages for labels and amo mapping)."""
+
+    UNSORTED = "UNSORTED"
+    NEW_LEAD = "NEW_LEAD"
     QUALIFICATION = "QUALIFICATION"
-    CALCULATION = "CALCULATION"
     PROPOSAL_SENT = "PROPOSAL_SENT"
     NEGOTIATION = "NEGOTIATION"
+    CONTRACT = "CONTRACT"
+    PREPAYMENT = "PREPAYMENT"
+    PRODUCTION = "PRODUCTION"
+    DELIVERY = "DELIVERY"
+    INSTALLATION = "INSTALLATION"
+    ACT_SIGNING = "ACT_SIGNING"
     CLOSED_WON = "CLOSED_WON"
     CLOSED_LOST = "CLOSED_LOST"
+
+
+class LeadPipelineStage(Base):
+    __tablename__ = "lead_pipeline_stages"
+
+    code: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    is_won: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_lost: Mapped[bool] = mapped_column(Boolean, default=False)
+    amo_status_id: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)
 
 
 class ActivityType(StrEnum):
@@ -80,7 +110,13 @@ class Lead(UUIDTimestampMixin, Base):
 
     amo_id: Mapped[str | None] = mapped_column(String(80), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
-    status: Mapped[LeadStatus] = mapped_column(Enum(LeadStatus), default=LeadStatus.NEW)
+    status: Mapped[str] = mapped_column(
+        String(40),
+        ForeignKey("lead_pipeline_stages.code"),
+        default=LeadStatus.NEW_LEAD.value,
+        index=True,
+    )
+    pipeline_stage: Mapped[LeadPipelineStage] = relationship()
     source: Mapped[str] = mapped_column(String(50), default="manual")
     raw_text: Mapped[str | None] = mapped_column(Text)
     parsed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

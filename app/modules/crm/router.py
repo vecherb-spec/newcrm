@@ -16,7 +16,6 @@ from app.modules.crm.models import (
     Contact,
     Lead,
     LeadActivity,
-    LeadStatus,
     LeadTask,
     TaskStatus,
 )
@@ -37,6 +36,12 @@ from app.modules.crm.schemas import (
     LeadTaskUpdate,
     LeadUpdate,
 )
+from app.modules.crm.stages_router import router as stages_router
+from app.modules.crm.stages_service import (
+    resolve_stage_code,
+    stage_codes_terminal,
+    validate_stage_code,
+)
 from app.modules.projects.service import (
     get_project_for_lead,
     lead_ready_for_project,
@@ -45,25 +50,7 @@ from app.modules.projects.service import (
 from app.modules.tasks.service import sync_next_contact_task, utc_now
 
 router = APIRouter(tags=["CRM"])
-
-STAGE_ALIASES = {
-    "новый": LeadStatus.NEW,
-    "new": LeadStatus.NEW,
-    "квалификация": LeadStatus.QUALIFICATION,
-    "qualification": LeadStatus.QUALIFICATION,
-    "расчет": LeadStatus.CALCULATION,
-    "расчёт": LeadStatus.CALCULATION,
-    "calculation": LeadStatus.CALCULATION,
-    "calculating": LeadStatus.CALCULATION,
-    "кп отправлено": LeadStatus.PROPOSAL_SENT,
-    "proposal_sent": LeadStatus.PROPOSAL_SENT,
-    "переговоры": LeadStatus.NEGOTIATION,
-    "negotiation": LeadStatus.NEGOTIATION,
-    "закрыто успешно": LeadStatus.CLOSED_WON,
-    "closed_won": LeadStatus.CLOSED_WON,
-    "закрыто и не реализовано": LeadStatus.CLOSED_LOST,
-    "closed_lost": LeadStatus.CLOSED_LOST,
-}
+router.include_router(stages_router)
 
 ACTIVITY_ALIASES = {
     "звонок": "CALL",
@@ -103,17 +90,20 @@ def _normalize_phone(phone: str | None) -> str | None:
     return digits or None
 
 
-def _normalize_stage(stage: str | None) -> tuple[LeadStatus, bool]:
-    if not stage:
-        return LeadStatus.QUALIFICATION, True
+async def _resolve_import_stage(
+    session: AsyncSession,
+    *,
+    amo_status_id: int | None,
+    stage: str | None,
+) -> tuple[str, bool]:
     try:
-        return LeadStatus(stage), False
-    except ValueError:
-        pass
-    normalized = stage.strip().casefold()
-    if normalized in STAGE_ALIASES:
-        return STAGE_ALIASES[normalized], False
-    raise HTTPException(status_code=422, detail=f"Неизвестная стадия сделки: {stage}")
+        return await resolve_stage_code(
+            session,
+            amo_status_id=amo_status_id,
+            stage=stage,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 def _normalize_activity_type(activity_type: str) -> ActivityType:
@@ -266,9 +256,20 @@ async def update_contact(
     return contact
 
 
-@router.get("/leads", response_model=list[LeadRead])
+@router.get(
+    "/leads",
+    response_model=list[LeadRead],
+    summary="Список сделок",
+    description=(
+        "Фильтр `stage` — код этапа воронки из справочника GET /api/v1/leads/stages "
+        "(например NEW_LEAD, PROPOSAL_SENT, CLOSED_WON)."
+    ),
+)
 async def list_leads(
-    stage: LeadStatus | None = None,
+    stage: str | None = Query(
+        default=None,
+        description="Код этапа воронки (см. GET /api/v1/leads/stages)",
+    ),
     responsible_user_id: UUID | None = None,
     overdue: bool = False,
     query: str | None = Query(default=None, min_length=1),
@@ -276,14 +277,19 @@ async def list_leads(
 ) -> list[Lead]:
     statement = select(Lead).outerjoin(Contact).options(*_lead_options())
     if stage:
-        statement = statement.where(Lead.status == stage)
+        try:
+            stage_code = await validate_stage_code(session, stage)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        statement = statement.where(Lead.status == stage_code)
     if responsible_user_id:
         statement = statement.where(Lead.responsible_user_id == responsible_user_id)
     if overdue:
+        terminal = await stage_codes_terminal(session)
         statement = statement.where(
             Lead.next_contact_at.is_not(None),
             Lead.next_contact_at < datetime.now(UTC),
-            Lead.status.not_in([LeadStatus.CLOSED_WON, LeadStatus.CLOSED_LOST]),
+            Lead.status.not_in(terminal),
         )
     if query:
         pattern = f"%{query}%"
@@ -305,6 +311,10 @@ async def create_lead(
     session: AsyncSession = Depends(get_session),
 ) -> Lead:
     await _validate_user(payload.responsible_user_id, session)
+    try:
+        await validate_stage_code(session, payload.status)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     contact_id = await _contact_from_payload(payload, session)
     lead = Lead(**_lead_values(payload), contact_id=contact_id)
     session.add(lead)
@@ -363,6 +373,11 @@ async def update_lead(
 ) -> Lead:
     lead = await _require_lead(lead_id, session)
     await _validate_user(payload.responsible_user_id, session)
+    if payload.status is not None:
+        try:
+            await validate_stage_code(session, payload.status)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     for field, value in _lead_values(payload).items():
         setattr(lead, field, value)
     if payload.contact_id or any(
@@ -563,7 +578,11 @@ async def import_amo_deals(
                     .where(or_(*fallback_filters))
                     .options(*_lead_detail_options())
                 )
-        stage, empty_stage = _normalize_stage(item.stage)
+        stage, empty_stage = await _resolve_import_stage(
+            session,
+            amo_status_id=item.amo_status_id,
+            stage=item.stage,
+        )
         if empty_stage:
             empty_stage_flagged += 1
         lead_values = {

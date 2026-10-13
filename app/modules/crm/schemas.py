@@ -66,7 +66,10 @@ class ContactRead(ContactCreate):
 class LeadCreate(BaseModel):
     amo_id: str | None = Field(default=None, max_length=80)
     title: str = Field(min_length=2, max_length=255)
-    status: LeadStatus = LeadStatus.NEW
+    status: LeadStatus = Field(
+        default=LeadStatus.NEW_LEAD,
+        description="Код этапа воронки. Справочник: GET /api/v1/leads/stages",
+    )
     source: str = Field(default="manual", max_length=50)
     raw_text: str | None = None
     parsed_data: dict[str, Any] = Field(default_factory=dict)
@@ -86,7 +89,10 @@ class LeadCreate(BaseModel):
 class LeadUpdate(BaseModel):
     amo_id: str | None = Field(default=None, max_length=80)
     title: str | None = Field(default=None, min_length=2, max_length=255)
-    status: LeadStatus | None = None
+    status: LeadStatus | None = Field(
+        default=None,
+        description="Код этапа воронки. Справочник: GET /api/v1/leads/stages",
+    )
     source: str | None = Field(default=None, max_length=50)
     raw_text: str | None = None
     parsed_data: dict[str, Any] | None = None
@@ -214,7 +220,14 @@ class AmoImportNote(BaseModel):
 class AmoImportDeal(BaseModel):
     amo_id: str | int | None = None
     title: str = Field(min_length=2, max_length=255)
-    stage: str | None = None
+    stage: str | None = Field(
+        default=None,
+        description="Название или код этапа; приоритет у amo_status_id",
+    )
+    amo_status_id: int | None = Field(
+        default=None,
+        description="ID статуса amoCRM (pipeline 11327590); маппится через lead_pipeline_stages",
+    )
     amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     source: str | None = Field(default="amoCRM", max_length=50)
     created_at: datetime | None = None

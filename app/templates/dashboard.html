@@ -149,6 +149,7 @@
         <button @click="section='warehouse'; loadWarehouse()" :class="navClass('warehouse')" class="block w-full rounded px-3 py-2 text-left">Склад</button>
         <button @click="section='installations'; loadInstallations()" :class="navClass('installations')" class="block w-full rounded px-3 py-2 text-left">Монтажи</button>
         <button @click="section='projects'; loadProjects()" :class="navClass('projects')" class="block w-full rounded px-3 py-2 text-left">Проекты</button>
+        <button x-show="user?.role === 'ADMIN'" @click="section='pipeline-stages'; loadStages()" :class="navClass('pipeline-stages')" class="block w-full rounded px-3 py-2 text-left">Этапы воронки</button>
         <button @click="openPlaceholder('Ассистент')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Ассистент</button>
       </nav>
       <button @click="openTaskForm()" class="mt-5 w-full rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Быстрая задача</button>
@@ -528,6 +529,22 @@
         </section>
       </section>
 
+      <section x-show="section==='pipeline-stages'" class="max-w-4xl">
+        <header class="mb-5"><h1 class="text-2xl font-semibold">Этапы воронки (amoCRM)</h1><p class="mt-1 text-sm text-slate-500">API: GET /api/v1/leads/stages</p></header>
+        <ol class="space-y-2 rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <template x-for="(stage, index) in stages" :key="stage.code">
+            <li class="flex flex-wrap items-center gap-2 rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm">
+              <span class="w-6 text-slate-500" x-text="index + 1"></span>
+              <input x-model="stage.name" class="min-w-[180px] flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1">
+              <code class="text-xs text-cyan-400" x-text="stage.code"></code>
+              <span class="text-xs text-slate-500" x-text="stage.amo_status_id ? `amo ${stage.amo_status_id}` : ''"></span>
+              <button type="button" @click="saveStage(stage)" class="rounded border border-slate-700 px-2 py-1 text-xs text-cyan-400">Сохранить</button>
+            </li>
+          </template>
+        </ol>
+        <form @submit.prevent="saveStageOrder()" class="mt-4"><button type="submit" class="rounded bg-slate-700 px-4 py-2 text-sm">Сохранить порядок списка</button></form>
+      </section>
+
       <section x-show="section==='placeholder'" class="grid min-h-[60vh] place-items-center">
         <div class="max-w-lg rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-8 text-center">
           <p class="text-xs uppercase tracking-widest text-cyan-500">Единый портал Medialive</p>
@@ -658,9 +675,7 @@
         newStandaloneTask: {title: '', due_at: '', responsible_user_id: '', lead_id: '', priority: 'NORMAL'},
         taskView: 'today', taskMode: 'list', taskDashboard: {today: 0, overdue: 0, week: 0, no_response_proposals: 0},
         calculationInput: {width_m: 3, height_m: 2, pitch_mm: 2.5, brightness_nits: 1000, cabinet_width_mm: 500, cabinet_height_mm: 500, power_redundancy_percent: 15, target_margin_percent: 30},
-        stages: [
-          ['NEW','Новый'],['QUALIFICATION','Квалификация'],['CALCULATION','Расчет'],['PROPOSAL_SENT','КП отправлено'],['NEGOTIATION','Переговоры'],['CLOSED_WON','Закрыто успешно'],['CLOSED_LOST','Закрыто и не реализовано']
-        ].map(([code,label]) => ({code,label})),
+        stages: [],
         activityTypes: [['CALL','Звонок'],['MESSAGE','Сообщение'],['MEETING','Встреча'],['COMMENT','Комментарий']].map(([code,label]) => ({code,label})),
         taskViews: [['today','Сегодня'],['overdue','Просрочено'],['week','Неделя'],['all','Все']].map(([code,label]) => ({code,label})),
         priorities: [['LOW','Низкий'],['NORMAL','Обычный'],['HIGH','Высокий'],['URGENT','Срочно']].map(([code,label]) => ({code,label})),
@@ -679,7 +694,7 @@
         iso(value) { return value ? new Date(value).toISOString() : null; },
         async init() {
           if (!this.token) return;
-          try { this.user = await this.api('/auth/me'); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
+          try { this.user = await this.api('/auth/me'); await this.loadStages(); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
           catch (error) { this.error = error.message; }
         },
         async authenticate() {
@@ -693,6 +708,26 @@
         },
         logout() { localStorage.removeItem('ledops_token'); this.token = ''; this.user = null; },
         async loadUsers() { this.users = await this.api('/auth/users'); },
+        async loadStages() {
+          const rows = await this.api('/leads/stages');
+          this.stages = rows.map(row => ({...row, label: row.name}));
+        },
+        stageTerminal(code) {
+          const stage = this.stages.find(item => item.code === code);
+          return stage ? (stage.is_won || stage.is_lost) : ['CLOSED_WON','CLOSED_LOST'].includes(code);
+        },
+        async saveStage(stage) {
+          try {
+            await this.api(`/leads/stages/${stage.code}`, this.jsonOptions({name: stage.name}, 'PATCH'));
+            await this.loadStages();
+          } catch (error) { this.error = error.message; }
+        },
+        async saveStageOrder() {
+          try {
+            await this.api('/leads/stages/reorder', this.jsonOptions({codes: this.stages.map(item => item.code)}, 'PUT'));
+            await this.loadStages();
+          } catch (error) { this.error = error.message; }
+        },
         async loadLeads() {
           const params = new URLSearchParams();
           if (this.filters.stage) params.set('stage', this.filters.stage);
@@ -713,10 +748,10 @@
         async createLeadFromConversation() { try { const title = this.selectedConversation.title || 'Новая сделка из inbox'; await this.api(`/inbox/conversations/${this.selectedConversation.id}/lead`, this.jsonOptions({title, source:'inbox'})); await this.openConversation(this.selectedConversation.id); await this.loadLeads(); } catch (error) { this.error = error.message; } },
         openTaskForm() { this.newStandaloneTask = {title:'', due_at:'', responsible_user_id:this.user?.id || '', lead_id:'', priority:'NORMAL'}; this.showTaskForm = true; },
         byStage(code) { return this.leads.filter(lead => lead.status === code); },
-        openDeals() { return this.leads.filter(lead => !['CLOSED_WON','CLOSED_LOST'].includes(lead.status)); },
+        openDeals() { return this.leads.filter(lead => !this.stageTerminal(lead.status)); },
         overdueDeals() { return this.leads.filter(lead => this.isOverdue(lead)); },
         pipelineAmount() { return this.openDeals().reduce((sum, lead) => sum + Number(lead.amount || 0), 0); },
-        isOverdue(lead) { return lead.next_contact_at && new Date(lead.next_contact_at) < new Date() && !['CLOSED_WON','CLOSED_LOST'].includes(lead.status); },
+        isOverdue(lead) { return lead.next_contact_at && new Date(lead.next_contact_at) < new Date() && !this.stageTerminal(lead.status); },
         openLeadForm() { this.resetLeadForm(); this.showLeadForm = true; },
         async createLead() {
           try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; await this.loadTaskDashboard(); }

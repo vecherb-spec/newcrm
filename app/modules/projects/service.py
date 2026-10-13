@@ -19,7 +19,7 @@ DEFAULT_TASKS = (
 
 def lead_ready_for_project(lead: Lead) -> bool:
     return (
-        lead.status is LeadStatus.CLOSED_WON
+        lead.status == LeadStatus.CLOSED_WON.value
         and lead.contract_signed
         and lead.paid
     )
@@ -50,7 +50,7 @@ async def create_project_from_lead(
     existing = await get_project_for_lead(session, lead.id)
     if existing:
         return existing
-    if lead.status is not LeadStatus.CLOSED_WON:
+    if lead.status != LeadStatus.CLOSED_WON.value:
         raise ValueError("Проект можно создать только из выигранной сделки")
     calculation_id = await latest_calculation_id(session, lead.id)
     project = Project(
