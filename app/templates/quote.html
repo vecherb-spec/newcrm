@@ -19,10 +19,16 @@
   </style>
 </head>
 <body>
-  <header><strong>LED OPS</strong> · Инженерные светодиодные системы</header>
+  <header>
+    <strong>{{ supplier.name }}</strong> · Инженерные светодиодные системы<br>
+    ИНН {{ supplier.inn }} · КПП {{ supplier.kpp }} · {{ supplier.address }}<br>
+    Генеральный директор: {{ supplier.director }}
+  </header>
   <h1>Коммерческое предложение № {{ number }}</h1>
   <p class="meta">Дата: {{ issued_on.strftime("%d.%m.%Y") }}</p>
   <p>Заказчик: <strong>{{ customer }}</strong></p>
+  {% if customer_company %}<p>Компания: {{ customer_company }}</p>{% endif %}
+  {% if customer_phone %}<p>Телефон: {{ customer_phone }}</p>{% endif %}
   <p>Проект: {{ project }}</p>
   <h2>Параметры экрана</h2>
   <p>
@@ -45,6 +51,7 @@
     </tbody>
   </table>
   <div class="total">Итого: <strong>{{ "{:,.2f}".format(total) }} {{ currency }}</strong></div>
+  <p><strong>{{ lead_time }}</strong></p>
   <footer>Предложение действительно 10 календарных дней. Документ сформирован системой LED Ops.</footer>
 </body>
 </html>

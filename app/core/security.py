@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -7,6 +9,7 @@ from pwdlib import PasswordHash
 from app.core.config import get_settings
 
 ALGORITHM = "HS256"
+SERVICE_TOKEN_PREFIX = "svc_"
 password_hash = PasswordHash.recommended()
 
 
@@ -33,3 +36,11 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None) -> st
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
     return jwt.decode(token, settings.secret_key.get_secret_value(), algorithms=[ALGORITHM])
+
+
+def create_service_token() -> str:
+    return f"{SERVICE_TOKEN_PREFIX}{secrets.token_urlsafe(32)}"
+
+
+def hash_service_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

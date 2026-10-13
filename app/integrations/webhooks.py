@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
 from app.core.llm_client import LeadParser
-from app.modules.crm.models import Lead, Message
+from app.modules.crm.models import Contact, Lead, Message
 
 router = APIRouter(prefix="/webhooks", tags=["Integrations"])
 
@@ -30,11 +30,21 @@ async def _ingest_message(
     if existing:
         return {"status": "duplicate"}
     parsed = await LeadParser(settings).parse(text)
+    contact = None
+    if parsed.contact_name or parsed.contact_phone:
+        contact = Contact(
+            name=parsed.contact_name or "Клиент из мессенджера",
+            phone=parsed.contact_phone,
+            company=parsed.location,
+        )
+        session.add(contact)
+        await session.flush()
     lead = Lead(
         title=f"{channel.title()}: {text[:80]}",
         source=channel,
         raw_text=text,
         parsed_data=parsed.model_dump(mode="json"),
+        contact_id=contact.id if contact else None,
     )
     session.add(lead)
     await session.flush()
@@ -66,9 +76,11 @@ async def telegram_webhook(
     payload = await request.json()
     message = payload.get("message") or payload.get("edited_message") or {}
     text = message.get("text") or message.get("caption")
-    external_id = str(message.get("message_id", ""))
-    if not text or not external_id:
+    chat_id = (message.get("chat") or {}).get("id", "")
+    message_id = message.get("message_id")
+    if not text or not message_id:
         return {"status": "ignored"}
+    external_id = f"{chat_id}:{message_id}"
     return await _ingest_message(
         channel="telegram",
         external_id=external_id,

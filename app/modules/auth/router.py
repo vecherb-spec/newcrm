@@ -11,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.security import (
     create_access_token,
+    create_service_token,
     decode_access_token,
+    hash_service_token,
     hash_password,
     verify_password,
 )
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import ApiToken, User, UserRole
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
@@ -44,6 +46,23 @@ class TokenRead(BaseModel):
     token_type: str = "bearer"
 
 
+class ApiTokenCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+
+
+class ApiTokenRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    created_by_id: UUID
+    is_active: bool
+
+
+class ApiTokenCreated(ApiTokenRead):
+    token: str
+
+
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep
 ) -> User:
@@ -52,11 +71,22 @@ async def get_current_user(
         detail="Invalid or expired credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = decode_access_token(token)
-        user_id = UUID(payload["sub"])
-    except (jwt.InvalidTokenError, KeyError, TypeError, ValueError) as error:
-        raise credentials_error from error
+    if token.startswith("svc_"):
+        api_token = await session.scalar(
+            select(ApiToken).where(
+                ApiToken.token_hash == hash_service_token(token),
+                ApiToken.is_active.is_(True),
+            )
+        )
+        if api_token is None:
+            raise credentials_error
+        user_id = api_token.created_by_id
+    else:
+        try:
+            payload = decode_access_token(token)
+            user_id = UUID(payload["sub"])
+        except (jwt.InvalidTokenError, KeyError, TypeError, ValueError) as error:
+            raise credentials_error from error
     user = await session.get(User, user_id)
     if user is None or not user.is_active:
         raise credentials_error
@@ -103,6 +133,12 @@ async def current_user(user: CurrentUser) -> User:
     return user
 
 
+@router.get("/users", response_model=list[UserRead])
+async def list_users(session: SessionDep, _actor: CurrentUser) -> list[User]:
+    result = await session.scalars(select(User).order_by(User.full_name))
+    return list(result)
+
+
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(payload: UserCreate, session: SessionDep, actor: CurrentUser) -> User:
     if actor.role is not UserRole.ADMIN:
@@ -119,3 +155,31 @@ async def create_user(payload: UserCreate, session: SessionDep, actor: CurrentUs
     await session.commit()
     await session.refresh(user)
     return user
+
+
+@router.get("/api-tokens", response_model=list[ApiTokenRead])
+async def list_api_tokens(session: SessionDep, actor: CurrentUser) -> list[ApiToken]:
+    if actor.role is not UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Administrator role required")
+    result = await session.scalars(select(ApiToken).order_by(ApiToken.created_at.desc()))
+    return list(result)
+
+
+@router.post("/api-tokens", response_model=ApiTokenCreated, status_code=status.HTTP_201_CREATED)
+async def create_api_token(
+    payload: ApiTokenCreate,
+    session: SessionDep,
+    actor: CurrentUser,
+) -> ApiTokenCreated:
+    if actor.role is not UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Administrator role required")
+    token = create_service_token()
+    api_token = ApiToken(
+        name=payload.name,
+        token_hash=hash_service_token(token),
+        created_by_id=actor.id,
+    )
+    session.add(api_token)
+    await session.commit()
+    await session.refresh(api_token)
+    return ApiTokenCreated.model_validate({**ApiTokenRead.model_validate(api_token).model_dump(), "token": token})

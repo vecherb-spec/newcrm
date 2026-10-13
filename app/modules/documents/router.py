@@ -17,6 +17,15 @@ from app.modules.projects.models import Project
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
+MEDIALIVE_REQUISITES = {
+    "name": "ООО «МЕДИАЛАЙВ»",
+    "inn": "9714076643",
+    "kpp": "771401001",
+    "director": "Вечер Алена Юрьевна",
+    "address": "127287, г. Москва, ул. 1-я Хуторская, д. 5А",
+}
+QUOTE_LEAD_TIME = "СРОКИ ПОСТАВКИ ЭКРАНА ЗАКАЗЧИКУ: 20 рабочих дней"
+
 
 def _pdf_response(content: bytes, filename: str) -> Response:
     safe_filename = re.sub(r"[^A-Za-z0-9_.-]", "_", filename)
@@ -34,23 +43,36 @@ async def _quote_context(
     calculation = await session.get(EngineeringCalculation, calculation_id)
     if calculation is None:
         raise HTTPException(status_code=404, detail="Calculation not found")
-    lead = await session.get(Lead, calculation.lead_id) if calculation.lead_id else None
+    lead = (
+        await session.scalar(
+            select(Lead).where(Lead.id == calculation.lead_id).options(selectinload(Lead.contact))
+        )
+        if calculation.lead_id
+        else None
+    )
     parsed = lead.parsed_data if lead else {}
+    contact = lead.contact if lead else None
     customer = (
-        parsed.get("contact_name")
+        (contact.name if contact else None)
+        or (contact.company if contact else None)
+        or parsed.get("contact_name")
         or parsed.get("company")
         or (lead.title if lead else None)
         or "Заказчик"
     )
     return {
-        "number": f"KP-{str(calculation.id)[:8].upper()}",
+        "number": f"КП-{date.today():%Y%m%d}-{str(calculation.id)[:8].upper()}",
         "customer": customer,
+        "customer_phone": contact.phone if contact else parsed.get("contact_phone"),
+        "customer_company": contact.company if contact else parsed.get("company"),
         "project": calculation.name,
         "parameters": calculation.input_data,
         "result": calculation.result_data,
         "total": calculation.suggested_sales_price,
         "currency": "RUB",
         "issued_on": date.today(),
+        "supplier": MEDIALIVE_REQUISITES,
+        "lead_time": QUOTE_LEAD_TIME,
     }
 
 
