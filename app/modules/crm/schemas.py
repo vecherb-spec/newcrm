@@ -63,6 +63,8 @@ class LeadCreate(BaseModel):
     responsible_user_id: UUID | None = None
     next_contact_at: datetime | None = None
     lost_reason: str | None = None
+    contract_signed: bool = False
+    paid: bool = False
 
 
 class LeadUpdate(BaseModel):
@@ -81,6 +83,8 @@ class LeadUpdate(BaseModel):
     responsible_user_id: UUID | None = None
     next_contact_at: datetime | None = None
     lost_reason: str | None = None
+    contract_signed: bool | None = None
+    paid: bool | None = None
 
 
 class LeadRead(LeadCreate):
@@ -162,6 +166,8 @@ class LeadDetail(LeadRead):
     activities: list[ActivityRead] = Field(default_factory=list)
     tasks: list[LeadTaskRead] = Field(default_factory=list)
     calculations: list[CalculationSummary] = Field(default_factory=list)
+    project_id: UUID | None = None
+    ready_for_project: bool = False
 
 
 class AmoImportContact(BaseModel):

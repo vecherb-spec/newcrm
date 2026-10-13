@@ -146,6 +146,9 @@
         <button @click="section='tasks'; loadTasks()" :class="navClass('tasks')" class="block w-full rounded px-3 py-2 text-left">Задачи</button>
         <button @click="openPlaceholder('Документы')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Документы</button>
         <button @click="section='inbox'; loadInbox()" :class="navClass('inbox')" class="block w-full rounded px-3 py-2 text-left">Сообщения</button>
+        <button @click="section='warehouse'; loadWarehouse()" :class="navClass('warehouse')" class="block w-full rounded px-3 py-2 text-left">Склад</button>
+        <button @click="section='installations'; loadInstallations()" :class="navClass('installations')" class="block w-full rounded px-3 py-2 text-left">Монтажи</button>
+        <button @click="section='projects'; loadProjects()" :class="navClass('projects')" class="block w-full rounded px-3 py-2 text-left">Проекты</button>
         <button @click="openPlaceholder('Ассистент')" :class="navClass('placeholder')" class="block w-full rounded px-3 py-2 text-left">Ассистент</button>
       </nav>
       <button @click="openTaskForm()" class="mt-5 w-full rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ Быстрая задача</button>
@@ -426,6 +429,87 @@
         </div>
       </section>
 
+      <section x-show="section==='warehouse'">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div><h1 class="text-2xl font-semibold">Склад</h1><p class="text-sm text-slate-500">Каталог SKU, остатки и операции</p></div>
+          <div class="flex gap-2">
+            <input x-model="inventoryQuery" @input.debounce.300ms="loadWarehouse()" placeholder="Поиск по коду или названию" class="rounded-lg border px-3 py-2 text-sm">
+            <label class="rounded-lg border px-3 py-2 text-sm"><input type="checkbox" x-model="inventoryLowOnly" @change="loadWarehouse()" class="mr-2 accent-blue-600">Низкий остаток</label>
+            <button @click="showSkuForm=true" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ SKU</button>
+          </div>
+        </div>
+        <section class="mb-5 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+          <table class="w-full text-sm">
+            <thead class="border-b border-slate-800 bg-slate-950/60 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Код</th><th class="px-4 py-3">Название</th><th class="px-4 py-3">Категория</th><th class="px-4 py-3">На складе</th><th class="px-4 py-3">Резерв</th><th class="px-4 py-3">Доступно</th><th class="px-4 py-3">Мин.</th></tr></thead>
+            <tbody><template x-for="sku in skus" :key="sku.id"><tr :class="Number(sku.quantity_available) <= Number(sku.minimum_stock) ? 'bg-rose-950/40' : ''"><td class="px-4 py-3 font-medium" x-text="sku.code"></td><td class="px-4 py-3" x-text="sku.name"></td><td class="px-4 py-3" x-text="sku.category"></td><td class="px-4 py-3" x-text="sku.quantity_on_hand"></td><td class="px-4 py-3" x-text="sku.quantity_reserved"></td><td class="px-4 py-3" x-text="sku.quantity_available"></td><td class="px-4 py-3" x-text="sku.minimum_stock"></td></tr></template></tbody>
+          </table>
+        </section>
+        <section class="grid gap-4 lg:grid-cols-2">
+          <form @submit.prevent="postStockTransaction" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <h2 class="text-sm font-semibold">Операция со складом</h2>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <select x-model="stockForm.sku_id" required class="col-span-2 rounded border px-3 py-2 text-sm"><option value="">Выберите SKU</option><template x-for="sku in skus" :key="sku.id"><option :value="sku.id" x-text="`${sku.code} — ${sku.name}`"></option></template></select>
+              <select x-model="stockForm.type" class="rounded border px-3 py-2 text-sm"><option value="RECEIPT">Приход</option><option value="ISSUE">Списание</option><option value="RESERVATION">Резерв под проект</option><option value="RELEASE">Снятие резерва</option></select>
+              <input x-model="stockForm.quantity" type="number" min="0.001" step="0.001" required placeholder="Кол-во" class="rounded border px-3 py-2 text-sm">
+              <select x-model="stockForm.project_id" class="col-span-2 rounded border px-3 py-2 text-sm"><option value="">Проект (для резерва)</option><template x-for="project in projects" :key="project.id"><option :value="project.id" x-text="project.name"></option></template></select>
+              <input x-model="stockForm.note" placeholder="Комментарий" class="col-span-2 rounded border px-3 py-2 text-sm">
+            </div>
+            <button class="mt-3 rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Провести</button>
+          </form>
+          <form @submit.prevent="importInventoryCsv" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <h2 class="text-sm font-semibold">Импорт CSV</h2>
+            <p class="mt-1 text-xs text-slate-500">code,name,category,unit,unit_cost,quantity_on_hand,minimum_stock</p>
+            <input type="file" accept=".csv" @change="inventoryCsvFile = $event.target.files[0]" class="mt-3 w-full text-sm">
+            <button class="mt-3 rounded border border-slate-700 px-4 py-2 text-sm">Загрузить</button>
+          </form>
+        </section>
+      </section>
+
+      <section x-show="section==='installations'">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div><h1 class="text-2xl font-semibold">Монтажи</h1><p class="text-sm text-slate-500">Календарь бригад и задания на объекте</p></div>
+          <div class="flex gap-2">
+            <button @click="installationMode='list'" :class="installationMode==='list' ? 'bg-cyan-500/15 text-cyan-300' : ''" class="rounded px-3 py-2 text-sm">Список</button>
+            <button @click="installationMode='calendar'; loadInstallationCalendar()" :class="installationMode==='calendar' ? 'bg-cyan-500/15 text-cyan-300' : ''" class="rounded px-3 py-2 text-sm">Календарь</button>
+          </div>
+        </div>
+        <section x-show="installationMode==='list'" class="space-y-3">
+          <template x-for="job in installations" :key="job.id">
+            <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <div class="flex justify-between gap-3"><div><p class="font-semibold" x-text="job.title"></p><p class="text-sm text-slate-500" x-text="job.address"></p><p class="mt-1 text-xs text-slate-500" x-text="`${dateTime(job.starts_at)} — ${dateTime(job.ends_at)}`"></p></div><span class="text-xs uppercase text-cyan-400" x-text="job.status"></span></div>
+              <p x-show="job.conflicts?.length" class="mt-2 rounded bg-amber-500/10 px-3 py-2 text-xs text-amber-400">Конфликт расписания: сотрудник занят в это время</p>
+            </article>
+          </template>
+        </section>
+        <section x-show="installationMode==='calendar'" class="grid gap-3 md:grid-cols-2">
+          <template x-for="job in installationCalendar" :key="job.id"><article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="font-medium" x-text="job.title"></p><p class="text-xs text-slate-500" x-text="dateTime(job.starts_at)"></p></article></template>
+        </section>
+      </section>
+
+      <section x-show="section==='projects'">
+        <div class="mb-5 flex items-center justify-between"><div><h1 class="text-2xl font-semibold">Проекты</h1><p class="text-sm text-slate-500">Доска этапов и карточка проекта</p></div><button @click="loadProjectBoard()" class="rounded border border-slate-700 px-3 py-2 text-sm">Обновить доску</button></div>
+        <section class="mb-5 flex gap-3 overflow-x-auto pb-2">
+          <template x-for="column in projectColumns" :key="column.code">
+            <div class="min-w-[220px] rounded-xl border border-slate-800 bg-slate-900 p-3">
+              <p class="mb-2 text-xs font-semibold uppercase text-slate-500" x-text="column.label"></p>
+              <template x-for="project in (projectBoard[column.code] || [])" :key="project.id">
+                <button @click="openProject(project.id)" class="mb-2 block w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left hover:border-cyan-500/40"><p class="text-sm font-medium" x-text="project.name"></p><p class="text-xs text-slate-500" x-text="project.amount ? money(project.amount) : 'Без суммы'"></p></button>
+              </template>
+            </div>
+          </template>
+        </section>
+        <section x-show="selectedProject" class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div class="flex justify-between"><h2 class="text-lg font-semibold" x-text="selectedProject?.name"></h2><button @click="selectedProject=null" class="text-sm text-slate-500">Закрыть</button></div>
+          <p class="mt-1 text-sm text-slate-500" x-text="projectStatusLabel(selectedProject?.status)"></p>
+          <div class="mt-4 grid gap-4 lg:grid-cols-3">
+            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Маржа</p><p class="text-lg font-semibold" x-text="selectedProject?.economics ? money(selectedProject.economics.gross_margin) : '—'"></p></div>
+            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Резерв склада</p><p class="text-lg font-semibold" x-text="selectedProject?.reserved_stock?.length || 0"></p></div>
+            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Монтажи</p><p class="text-lg font-semibold" x-text="selectedProject?.installations?.length || 0"></p></div>
+          </div>
+          <form @submit.prevent="addProjectNote" class="mt-4 flex gap-2"><input x-model="projectNote" required placeholder="Внутренняя заметка по проекту" class="flex-1 rounded border px-3 py-2 text-sm"><button class="rounded bg-slate-700 px-3 text-sm">Добавить</button></form>
+        </section>
+      </section>
+
       <section x-show="section==='placeholder'" class="grid min-h-[60vh] place-items-center">
         <div class="max-w-lg rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-8 text-center">
           <p class="text-xs uppercase tracking-widest text-cyan-500">Единый портал Medialive</p>
@@ -503,6 +587,12 @@
           <input x-model="dealForm.source" class="rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Источник">
           <input x-model="dealForm.next_contact_at" type="datetime-local" class="rounded border border-slate-700 bg-slate-900 px-3 py-2">
           <textarea x-model="dealForm.lost_reason" rows="2" class="col-span-2 rounded border border-slate-700 bg-slate-900 px-3 py-2" placeholder="Причина отказа"></textarea>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="dealForm.contract_signed" class="accent-emerald-500">Договор подписан</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="dealForm.paid" class="accent-emerald-500">Оплачено</label>
+          <div class="col-span-2 flex flex-wrap gap-2">
+            <button type="button" x-show="selectedLead?.project_id" @click="openProject(selectedLead.project_id)" class="rounded border border-slate-700 px-3 py-2 text-sm text-cyan-400">Открыть проект</button>
+            <button type="button" x-show="!selectedLead?.project_id && selectedLead?.ready_for_project" @click="createProjectForDeal()" class="rounded border border-cyan-700 px-3 py-2 text-sm text-cyan-400">Создать проект</button>
+          </div>
           <button class="col-span-2 rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Сохранить сделку</button>
         </form>
 
@@ -536,6 +626,9 @@
     function crmApp() {
       return {
         token: localStorage.getItem('ledops_token') || '', user: null, users: [], leads: [], contacts: [], calculations: [], tasks: [], taskCalendar: [], inboxChannels: [], conversations: [],
+        skus: [], projects: [], projectBoard: {}, selectedProject: null, projectNote: '', inventoryQuery: '', inventoryLowOnly: false, inventoryCsvFile: null, showSkuForm: false,
+        installations: [], installationCalendar: [], installationMode: 'list', crew: [],
+        stockForm: {sku_id:'', type:'RECEIPT', quantity:'', project_id:'', note:''}, newSku: {code:'', name:'', category:'module', unit:'pcs', unit_cost:'0', minimum_stock:'0'},
         section: 'pipeline', placeholderTitle: '', error: '', bootstrap: false, showLeadForm: false, showContactForm: false, showTaskForm: false, selectedLead: null,
         selectedConversation: null, inboxChannel: '', composer: {text: '', original_filename: ''},
         draggingLeadId: null, contactQuery: '', calculationResult: null, calculationName: '', calculationLeadId: '',
@@ -552,6 +645,7 @@
         activityTypes: [['CALL','Звонок'],['MESSAGE','Сообщение'],['MEETING','Встреча'],['COMMENT','Комментарий']].map(([code,label]) => ({code,label})),
         taskViews: [['today','Сегодня'],['overdue','Просрочено'],['week','Неделя'],['all','Все']].map(([code,label]) => ({code,label})),
         priorities: [['LOW','Низкий'],['NORMAL','Обычный'],['HIGH','Высокий'],['URGENT','Срочно']].map(([code,label]) => ({code,label})),
+        projectColumns: [['PLANNING','Планирование'],['PROCUREMENT','Закупка'],['PRODUCTION','Производство'],['DELIVERY','Доставка'],['INSTALLATION','Монтаж'],['COMMISSIONING','Сдача'],['COMPLETED','Закрыт']].map(([code,label]) => ({code,label})),
         navClass(name) { return this.section === name ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'; },
         openPlaceholder(title) { this.placeholderTitle = title; this.section = 'placeholder'; },
         resetLeadForm() { this.newLead = {title: '', contact_name: '', contact_phone: '', contact_company: '', source: 'manual', amount: null, responsible_user_id: this.user?.id || '', next_contact_at: '', raw_text: ''}; },
@@ -615,7 +709,7 @@
         },
         async dropLead(status) { if (!this.draggingLeadId) return; const lead = this.leads.find(item => item.id === this.draggingLeadId); this.draggingLeadId = null; if (lead && lead.status !== status) await this.updateLeadStatus(lead, status); },
         async updateLeadStatus(lead, status) { const previous = lead.status; lead.status = status; try { Object.assign(lead, await this.api(`/leads/${lead.id}`, this.jsonOptions({status}, 'PATCH'))); } catch (error) { lead.status = previous; this.error = error.message; } },
-        async openDeal(id) { this.selectedLead = await this.api(`/leads/${id}`); this.dealForm = {title:this.selectedLead.title, status:this.selectedLead.status, amount:this.selectedLead.amount, responsible_user_id:this.selectedLead.responsible_user_id || '', source:this.selectedLead.source, next_contact_at:this.toLocalInput(this.selectedLead.next_contact_at), lost_reason:this.selectedLead.lost_reason || ''}; this.calculationLeadId = id; },
+        async openDeal(id) { this.selectedLead = await this.api(`/leads/${id}`); this.dealForm = {title:this.selectedLead.title, status:this.selectedLead.status, amount:this.selectedLead.amount, responsible_user_id:this.selectedLead.responsible_user_id || '', source:this.selectedLead.source, next_contact_at:this.toLocalInput(this.selectedLead.next_contact_at), lost_reason:this.selectedLead.lost_reason || '', contract_signed:this.selectedLead.contract_signed, paid:this.selectedLead.paid}; this.calculationLeadId = id; },
         async saveDeal() { try { const payload = {...this.dealForm, responsible_user_id:this.dealForm.responsible_user_id || null, next_contact_at:this.iso(this.dealForm.next_contact_at), amount:this.dealForm.amount || null}; const updated = await this.api(`/leads/${this.selectedLead.id}`, this.jsonOptions(payload, 'PATCH')); Object.assign(this.leads.find(lead => lead.id === updated.id) || {}, updated); await this.openDeal(updated.id); } catch (error) { this.error = error.message; } },
         async createActivity() { try { await this.api(`/leads/${this.selectedLead.id}/activities`, this.jsonOptions(this.newActivity)); this.newActivity = {type:'CALL', body:''}; await this.openDeal(this.selectedLead.id); } catch (error) { this.error = error.message; } },
         async createTask() { try { await this.api(`/leads/${this.selectedLead.id}/tasks`, this.jsonOptions({title:this.newTask.title, due_at:this.iso(this.newTask.due_at), priority:'NORMAL'})); this.newTask = {title:'', due_at:''}; await this.openDeal(this.selectedLead.id); await this.loadTaskDashboard(); } catch (error) { this.error = error.message; } },
@@ -633,6 +727,17 @@
         async loadProposalFlags() { this.section='tasks'; this.taskView='all'; await this.loadTasks(); },
         toLocalInput(value) { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16); },
         activityTypeLabel(code) { return this.activityTypes.find(item => item.code === code)?.label || code; },
+        projectStatusLabel(code) { return this.projectColumns.find(item => item.code === code)?.label || code; },
+        async loadWarehouse() { const params = new URLSearchParams(); if (this.inventoryQuery) params.set('query', this.inventoryQuery); if (this.inventoryLowOnly) params.set('low_stock', 'true'); this.skus = await this.api(`/inventory/skus${params.toString() ? `?${params}` : ''}`); if (!this.projects.length) await this.loadProjects(); },
+        async postStockTransaction() { try { await this.api('/inventory/transactions', this.jsonOptions({...this.stockForm, quantity:this.stockForm.quantity, project_id:this.stockForm.project_id || null})); this.stockForm.note=''; await this.loadWarehouse(); } catch (error) { this.error = error.message; } },
+        async importInventoryCsv() { try { if (!this.inventoryCsvFile) throw new Error('Выберите CSV файл'); const body = new FormData(); body.append('file', this.inventoryCsvFile); const response = await fetch('/api/v1/inventory/import/csv', {method:'POST', headers:{Authorization:`Bearer ${this.token}`}, body}); if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка импорта'); await this.loadWarehouse(); } catch (error) { this.error = error.message; } },
+        async loadProjects() { this.projects = await this.api('/projects'); },
+        async loadProjectBoard() { await this.loadProjects(); const board = await this.api('/projects/board'); this.projectBoard = board.columns || {}; },
+        async openProject(id) { this.section='projects'; this.selectedProject = await this.api(`/projects/${id}`); await this.loadProjectBoard(); },
+        async addProjectNote() { try { await this.api(`/projects/${this.selectedProject.id}/notes`, this.jsonOptions({body:this.projectNote})); this.projectNote=''; this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`); } catch (error) { this.error = error.message; } },
+        async loadInstallations() { this.installations = await this.api('/installations/jobs'); this.crew = await this.api('/installations/crew'); if (!this.projects.length) await this.loadProjects(); },
+        async loadInstallationCalendar() { const start = new Date(); const end = new Date(start.getTime() + 14*86400000); this.installationCalendar = await this.api(`/installations/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`); },
+        async createProjectForDeal() { try { const result = await this.api(`/leads/${this.selectedLead.id}/create-project`, this.jsonOptions({})); await this.openDeal(this.selectedLead.id); await this.openProject(result.project_id); } catch (error) { this.error = error.message; } },
         resultMetrics() { const r = this.calculationResult; if (!r) return []; return [['Кабинеты', `${r.cabinet_columns} × ${r.cabinet_rows} = ${r.cabinet_count}`], ['Разрешение', `${r.resolution_width} × ${r.resolution_height}`], ['Пиковая мощность', `${r.peak_power_kw} кВт`], ['Цена продажи', this.money(r.suggested_sales_price)]]; }
       }
     }
