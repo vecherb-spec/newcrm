@@ -42,7 +42,10 @@ def upgrade() -> None:
         "lead_tasks",
         sa.Column("responsible_user_id", sa.Uuid(), sa.ForeignKey("users.id")),
     )
-    op.add_column("lead_tasks", sa.Column("kind", sa.String(50), nullable=False, server_default="manual"))
+    op.add_column(
+        "lead_tasks",
+        sa.Column("kind", sa.String(50), nullable=False, server_default="manual"),
+    )
     op.add_column("lead_tasks", sa.Column("auto_key", sa.String(160)))
     op.create_index("ix_lead_tasks_contact_id", "lead_tasks", ["contact_id"])
     op.create_index("ix_lead_tasks_responsible_user_id", "lead_tasks", ["responsible_user_id"])
@@ -52,7 +55,9 @@ def upgrade() -> None:
         sa.text(
             """
             UPDATE lead_tasks
-            SET status = CASE WHEN is_completed THEN 'DONE' ELSE 'TODO' END
+            SET status = (
+                CASE WHEN is_completed THEN 'DONE' ELSE 'TODO' END
+            )::taskstatuscrm
             """
         )
     )

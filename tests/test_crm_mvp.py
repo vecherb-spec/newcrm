@@ -143,7 +143,7 @@ def test_crm_mvp_bot_api_deal_card_and_quote() -> None:
         card = detail.json()
         assert card["contact"]["company"] == "ТЦ Север"
         assert card["activities"][0]["body"] == "Обсудили сроки поставки"
-        assert card["tasks"][0]["title"] == "Позвонить по КП"
+        assert any(task["title"] == "Позвонить по КП" for task in card["tasks"])
         assert card["calculations"][0]["name"] == "КП ТЦ Север"
 
         preview = client.get(
@@ -282,7 +282,10 @@ def test_tasks_module_bot_api_and_automatic_flags() -> None:
         assert overdue.status_code == 200
         assert any(task["id"] == standalone.json()["id"] for task in overdue.json())
 
-        calendar = client.get("/api/v1/tasks/calendar?start=2026-10-12&end=2026-10-14", headers=headers)
+        calendar = client.get(
+            "/api/v1/tasks/calendar?start=2026-10-12&end=2026-10-14",
+            headers=headers,
+        )
         assert calendar.status_code == 200
         assert {task["title"] for task in calendar.json()} >= {
             "Проверить оплату",

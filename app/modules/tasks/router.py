@@ -11,7 +11,14 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_session
 from app.modules.auth.models import User
 from app.modules.auth.router import CurrentUser
-from app.modules.crm.models import Contact, Lead, LeadActivity, LeadStatus, LeadTask, TaskPriority, TaskStatus
+from app.modules.crm.models import (
+    Contact,
+    Lead,
+    LeadStatus,
+    LeadTask,
+    TaskPriority,
+    TaskStatus,
+)
 from app.modules.crm.schemas import ContactRead, LeadRead, UserSummary
 from app.modules.tasks.service import ensure_aware, utc_now
 
@@ -142,7 +149,10 @@ def _filter_by_view(statement: object, view: TaskView) -> object:
     if view == "overdue":
         return statement.where(LeadTask.due_at < now, LeadTask.status != TaskStatus.DONE)
     if view == "week":
-        return statement.where(LeadTask.due_at >= today_start, LeadTask.due_at < today_start + timedelta(days=7))
+        return statement.where(
+            LeadTask.due_at >= today_start,
+            LeadTask.due_at < today_start + timedelta(days=7),
+        )
     return statement
 
 
@@ -156,7 +166,11 @@ async def list_tasks(
     statement = _filter_by_view(statement, view)
     if responsible_user_id:
         statement = statement.where(LeadTask.responsible_user_id == responsible_user_id)
-    statement = statement.order_by(LeadTask.due_at.is_(None), LeadTask.due_at, LeadTask.created_at.desc())
+    statement = statement.order_by(
+        LeadTask.due_at.is_(None),
+        LeadTask.due_at,
+        LeadTask.created_at.desc(),
+    )
     return list(await session.scalars(statement))
 
 
@@ -185,7 +199,9 @@ async def create_task(
     )
     session.add(task)
     await session.commit()
-    return await session.scalar(select(LeadTask).where(LeadTask.id == task.id).options(*_task_options()))
+    return await session.scalar(
+        select(LeadTask).where(LeadTask.id == task.id).options(*_task_options())
+    )
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
@@ -195,7 +211,9 @@ async def update_task(
     session: AsyncSession = Depends(get_session),
 ) -> LeadTask:
     await _validate_links(payload, session)
-    task = await session.scalar(select(LeadTask).where(LeadTask.id == task_id).options(*_task_options()))
+    task = await session.scalar(
+        select(LeadTask).where(LeadTask.id == task_id).options(*_task_options())
+    )
     if task is None:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     for field, value in payload.model_dump(exclude_unset=True, exclude={"is_completed"}).items():
@@ -214,7 +232,9 @@ async def complete_task(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
 ) -> LeadTask:
-    task = await session.scalar(select(LeadTask).where(LeadTask.id == task_id).options(*_task_options()))
+    task = await session.scalar(
+        select(LeadTask).where(LeadTask.id == task_id).options(*_task_options())
+    )
     if task is None:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     _apply_completion(task, True)
@@ -257,5 +277,7 @@ async def task_calendar(
 
 
 @router.get("/proposal-no-response", response_model=list[ProposalNoResponse])
-async def proposal_no_response(session: AsyncSession = Depends(get_session)) -> list[ProposalNoResponse]:
+async def proposal_no_response(
+    session: AsyncSession = Depends(get_session),
+) -> list[ProposalNoResponse]:
     return await _proposal_flags(session)
