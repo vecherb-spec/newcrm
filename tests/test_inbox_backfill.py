@@ -130,7 +130,6 @@ def test_ingest_backfill_persists_email_message(monkeypatch) -> None:
     from app.core.database import Base, get_session
     from app.main import app
     from app.modules.inbox.backfill import ingest_backfill_items
-    from tests.test_crm_mvp import _bootstrap_service_token
 
     engine = create_async_engine(
         "sqlite+aiosqlite://",
@@ -151,8 +150,22 @@ def test_ingest_backfill_persists_email_message(monkeypatch) -> None:
     app.dependency_overrides[get_session] = session_override
     client = TestClient(app)
     try:
-        _, service_token = _bootstrap_service_token(client)
-        headers = {"Authorization": f"Bearer {service_token}"}
+        client.post(
+            "/api/v1/auth/bootstrap",
+            json={
+                "email": "inbox-backfill@medialive.ru",
+                "full_name": "Inbox QA",
+                "password": "very-secure-password",
+            },
+        )
+        login = client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "inbox-backfill@medialive.ru",
+                "password": "very-secure-password",
+            },
+        ).json()
+        headers = {"Authorization": f"Bearer {login['access_token']}"}
         contact = client.post(
             "/api/v1/contacts",
             headers=headers,
