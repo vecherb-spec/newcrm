@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     max_webhook_secret: SecretStr | None = None
     radist_api_key: SecretStr | None = None
+    radist_company_id: int = 207300
     radist_webhook_secret: SecretStr | None = None
     yandex_imap_user: str | None = None
     yandex_app_password: SecretStr | None = None

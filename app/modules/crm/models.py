@@ -41,6 +41,18 @@ class TaskPriority(StrEnum):
     URGENT = "URGENT"
 
 
+CRM_TASK_STATUS = Enum(
+    TaskStatus,
+    name="taskstatuscrm",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+CRM_TASK_PRIORITY = Enum(
+    TaskPriority,
+    name="taskpriority",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+
 class Contact(UUIDTimestampMixin, Base):
     __tablename__ = "contacts"
 
@@ -116,8 +128,10 @@ class LeadTask(UUIDTimestampMixin, Base):
     contact_id: Mapped[UUID | None] = mapped_column(ForeignKey("contacts.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus), default=TaskStatus.TODO)
-    priority: Mapped[TaskPriority] = mapped_column(Enum(TaskPriority), default=TaskPriority.NORMAL)
+    status: Mapped[TaskStatus] = mapped_column(CRM_TASK_STATUS, default=TaskStatus.TODO)
+    priority: Mapped[TaskPriority] = mapped_column(
+        CRM_TASK_PRIORITY, default=TaskPriority.NORMAL
+    )
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     responsible_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)

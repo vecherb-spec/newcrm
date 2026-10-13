@@ -8,11 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings, get_settings
-from app.core.database import get_session
+from app.core.database import get_session, session_factory
 from app.modules.auth.router import CurrentUser
 from app.modules.crm.models import Contact, Lead
 from app.modules.crm.schemas import ContactRead, LeadRead
 from app.modules.inbox.adapters import ChannelNotConnected, OutgoingMessage, adapters_by_channel
+from app.modules.inbox.backfill import (
+    effective_sync_since,
+    ingest_backfill_items,
+    last_channel_sync_at,
+)
 from app.modules.inbox.models import InboxChannel, InboxConversation, InboxMessage, MessageDirection
 from app.modules.inbox.service import record_message
 
@@ -217,5 +222,9 @@ async def radist_backfill(
     adapter = adapters_by_channel(settings)[InboxChannel.RADIST]
     if not adapter.is_connected():
         return {"status": "not_connected", "items": 0}
-    items = await adapter.backfill()
-    return {"status": "ok", "items": len(items)}
+    async with session_factory() as session:
+        last_sync = await last_channel_sync_at(session, InboxChannel.RADIST)
+        since = effective_sync_since(last_sync)
+        items = await adapter.backfill(since=since)
+        stored = await ingest_backfill_items(session, channel=InboxChannel.RADIST, items=items)
+    return {"status": "ok", "items": stored}
