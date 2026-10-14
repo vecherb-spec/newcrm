@@ -88,6 +88,100 @@
     .fixed.inset-0 { background: rgba(15, 23, 42, .22) !important; backdrop-filter: blur(8px); }
     table tr:hover td { background: #f8fafc; }
     ::selection { background: var(--crm-accent-soft); color: var(--crm-ink); }
+    html.modal-open, body.modal-open {
+      overflow: hidden !important;
+      height: 100% !important;
+      overscroll-behavior: none;
+    }
+    .deal-card-scroll {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    @media (max-width: 767px) {
+      .deal-card-overlay {
+        padding: 0 !important;
+        overflow: hidden !important;
+        overscroll-behavior: none;
+      }
+      .deal-card-panel {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: 0 !important;
+      }
+      .deal-card-header {
+        padding: 0.65rem 0.75rem !important;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .deal-card-header .deal-title-input {
+        font-size: 1.05rem !important;
+        line-height: 1.3;
+      }
+      .deal-card-header .deal-meta {
+        margin-top: 0.25rem !important;
+        font-size: 0.75rem !important;
+      }
+      .deal-card-header .deal-controls {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem;
+        width: 100%;
+      }
+      .deal-card-header .deal-controls select,
+      .deal-card-header .deal-controls input {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0.35rem 0.5rem !important;
+        font-size: 0.8rem !important;
+      }
+      .deal-card-header .deal-close-btn {
+        grid-column: 1 / -1;
+        justify-self: end;
+        width: auto;
+      }
+      .deal-card-header .deal-tabs {
+        margin-top: 0.5rem !important;
+        gap: 0.35rem !important;
+      }
+      .deal-card-body {
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        min-height: 0;
+        flex: 1 1 auto;
+      }
+      .deal-card-body > aside,
+      .deal-card-body > main {
+        overflow: visible !important;
+        max-height: none !important;
+      }
+      .modal-shell {
+        padding: 0 !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+        justify-items: stretch !important;
+      }
+      .modal-shell .modal-panel {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+    }
+    @media (min-width: 768px) {
+      .deal-card-body > aside,
+      .deal-card-body > main {
+        min-height: 0;
+      }
+    }
     @media (max-width: 900px) {
       aside.fixed {
         position: static !important;
@@ -102,7 +196,6 @@
       main .grid, .mx-auto.grid { grid-template-columns: minmax(0, 1fr) !important; }
       .w-72 { width: 18rem !important; }
       .max-w-6xl { max-width: 100% !important; }
-      .fixed.inset-0 { overflow: auto; }
       .border-l { border-left: 0 !important; border-top: 1px solid var(--crm-line) !important; }
     }
   </style>
@@ -561,8 +654,8 @@
     </main>
   </div>
 
-  <div x-cloak x-show="showTaskForm" class="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showTaskForm=false">
-    <form @submit.prevent="createStandaloneTask" class="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-6">
+  <div x-cloak x-show="showTaskForm" class="modal-shell fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showTaskForm=false">
+    <form @submit.prevent="createStandaloneTask" class="modal-panel w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-6">
       <h2 class="text-lg font-semibold">Быстрая задача</h2>
       <div class="mt-5 grid grid-cols-2 gap-3">
         <input x-model="newStandaloneTask.title" required minlength="2" placeholder="Что нужно сделать" class="col-span-2 rounded border border-slate-700 bg-slate-950 px-4 py-2">
@@ -583,8 +676,8 @@
     </form>
   </div>
 
-  <div x-cloak x-show="showLeadForm" class="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showLeadForm=false">
-    <form @submit.prevent="createLead" class="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6">
+  <div x-cloak x-show="showLeadForm" class="modal-shell fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showLeadForm=false">
+    <form @submit.prevent="createLead" class="modal-panel max-h-[92vh] w-full max-w-3xl overflow-auto rounded-xl border border-slate-700 bg-slate-900 p-6">
       <h2 class="text-lg font-semibold">Новая сделка</h2>
       <div class="mt-5 grid grid-cols-2 gap-3">
         <input x-model="newLead.title" required minlength="2" placeholder="Название сделки" class="rounded border border-slate-700 bg-slate-950 px-4 py-2">
@@ -601,8 +694,8 @@
     </form>
   </div>
 
-  <div x-cloak x-show="showContactForm" class="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showContactForm=false">
-    <form @submit.prevent="createContact" class="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-6">
+  <div x-cloak x-show="showContactForm" class="modal-shell fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-5" @keydown.escape.window="showContactForm=false">
+    <form @submit.prevent="createContact" class="modal-panel w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-6">
       <h2 class="text-lg font-semibold">Новый контакт</h2>
       <input x-model="newContact.name" required minlength="2" placeholder="Имя клиента" class="mt-5 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
       <input x-model="newContact.phone" placeholder="Телефон" class="mt-3 w-full rounded border border-slate-700 bg-slate-950 px-4 py-2">
@@ -612,33 +705,33 @@
     </form>
   </div>
 
-  <div x-cloak x-show="selectedLead" class="fixed inset-0 z-50 bg-slate-900/70 p-3 md:p-5" @keydown.escape.window="selectedLead=null">
-    <div class="mx-auto flex max-h-[96vh] max-w-[1400px] flex-col overflow-hidden rounded-2xl border border-slate-200/20 bg-slate-100 text-slate-900 shadow-2xl">
-      <header class="border-b border-slate-200 bg-white px-5 py-4">
-        <div class="flex flex-wrap items-start justify-between gap-4">
+  <div x-cloak x-show="selectedLead" class="deal-card-overlay fixed inset-0 z-50 flex bg-slate-900/70 p-3 md:p-5" @keydown.escape.window="closeDealCard()">
+    <div class="deal-card-panel mx-auto flex w-full max-w-[1400px] max-h-[96vh] flex-col overflow-hidden rounded-2xl border border-slate-200/20 bg-slate-100 text-slate-900 shadow-2xl">
+      <header class="deal-card-header shrink-0 border-b border-slate-200 bg-white px-5 py-4 md:sticky md:top-0 md:z-10">
+        <div class="flex flex-wrap items-start justify-between gap-2 md:gap-4">
           <div class="min-w-0 flex-1">
-            <input x-model="dealForm.title" class="w-full border-0 bg-transparent text-2xl font-semibold outline-none focus:ring-0" placeholder="Название сделки">
-            <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <input x-model="dealForm.title" class="deal-title-input w-full border-0 bg-transparent text-2xl font-semibold outline-none focus:ring-0" placeholder="Название сделки">
+            <div class="deal-meta mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600 md:gap-3">
               <a x-show="selectedLead?.contact?.phone" :href="`tel:${selectedLead?.contact?.phone}`" class="text-cyan-700 hover:underline" x-text="selectedLead?.contact?.phone"></a>
               <span x-show="selectedLead?.contact?.telegram" x-text="selectedLead?.contact?.telegram"></span>
               <span x-text="selectedLead?.contact?.company || selectedLead?.contact?.name || 'Клиент не указан'"></span>
             </div>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="deal-controls flex w-full flex-wrap items-center gap-2 md:w-auto">
             <select x-model="dealForm.status" @change="saveDeal()" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium"><template x-for="stage in stages" :key="stage.code"><option :value="stage.code" x-text="stage.label"></option></template></select>
             <input x-model.number="dealForm.amount" @change="saveDeal()" type="number" min="0" step="0.01" class="w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Сумма ₽">
             <select x-model="dealForm.responsible_user_id" @change="saveDeal()" class="max-w-[200px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="">Ответственный</option><template x-for="employee in users" :key="employee.id"><option :value="employee.id" x-text="employee.full_name"></option></template></select>
-            <button @click="selectedLead=null" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600">Закрыть</button>
+            <button type="button" @click="closeDealCard()" class="deal-close-btn rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600">Закрыть</button>
           </div>
         </div>
-        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+        <div class="deal-tabs mt-3 flex flex-wrap gap-2 text-xs">
           <button type="button" @click="dealCardTab='timeline'" :class="dealCardTab==='timeline' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Лента</button>
           <button type="button" @click="dealCardTab='files'" :class="dealCardTab==='files' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Файлы</button>
           <button type="button" @click="dealCardTab='tasks'" :class="dealCardTab==='tasks' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700'" class="rounded-full px-3 py-1">Задачи</button>
         </div>
       </header>
-      <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[340px_1fr_300px]">
-        <aside class="overflow-auto border-r border-slate-200 bg-white p-4">
+      <div class="deal-card-body deal-card-scroll grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[340px_1fr_300px] lg:overflow-hidden">
+        <aside class="border-r border-slate-200 bg-white p-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain">
           <template x-for="section in visibleSpecSections()" :key="section.id">
             <details class="mb-3 rounded-xl border border-slate-200" :open="!collapsedSpecSections[section.id]">
               <summary @click.prevent="toggleSpecSection(section.id)" class="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-800" x-text="section.title"></summary>
@@ -668,7 +761,7 @@
           </template>
           <button type="button" @click="saveSpecs()" class="mt-2 w-full rounded-lg bg-cyan-600 py-2 text-sm font-semibold text-white">Сохранить поля</button>
         </aside>
-        <main class="overflow-auto bg-slate-50 p-4">
+        <main class="bg-slate-50 p-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain">
           <section x-show="dealCardTab==='timeline'">
             <form @submit.prevent="createActivity" class="mb-4 flex gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
               <select x-model="newActivity.type" class="rounded border border-slate-300 px-2 py-1 text-sm"><template x-for="item in activityTypes" :key="item.code"><option :value="item.code" x-text="item.label"></option></template></select>
@@ -762,10 +855,28 @@
         },
         jsonOptions(payload, method='POST') { return {method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)}; },
         iso(value) { return value ? new Date(value).toISOString() : null; },
+        modalScrollLocked: false,
+        syncModalScrollLock() {
+          const open = Boolean(
+            this.selectedLead || this.showLeadForm || this.showContactForm || this.showTaskForm,
+          );
+          if (open === this.modalScrollLocked) return;
+          this.modalScrollLocked = open;
+          document.documentElement.classList.toggle('modal-open', open);
+          document.body.classList.toggle('modal-open', open);
+        },
+        closeDealCard() {
+          this.selectedLead = null;
+          this.syncModalScrollLock();
+        },
         async init() {
           if (!this.token) return;
           try { this.user = await this.api('/auth/me'); await this.loadStages(); await this.loadSpecSchema(); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
           catch (error) { this.error = error.message; }
+          this.$watch('selectedLead', () => this.syncModalScrollLock());
+          this.$watch('showLeadForm', () => this.syncModalScrollLock());
+          this.$watch('showContactForm', () => this.syncModalScrollLock());
+          this.$watch('showTaskForm', () => this.syncModalScrollLock());
         },
         async authenticate() {
           this.error = '';
@@ -830,13 +941,13 @@
         overdueDeals() { return this.leads.filter(lead => this.isOverdue(lead)); },
         pipelineAmount() { return this.openDeals().reduce((sum, lead) => sum + Number(lead.amount || 0), 0); },
         isOverdue(lead) { return lead.next_contact_at && new Date(lead.next_contact_at) < new Date() && !this.stageTerminal(lead.status); },
-        openLeadForm() { this.resetLeadForm(); this.showLeadForm = true; },
+        openLeadForm() { this.resetLeadForm(); this.showLeadForm = true; this.syncModalScrollLock(); },
         async createLead() {
-          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; await this.loadTaskDashboard(); }
+          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; this.syncModalScrollLock(); await this.loadTaskDashboard(); }
           catch (error) { this.error = error.message; }
         },
         async createContact() {
-          try { const contact = await this.api('/contacts', this.jsonOptions(this.newContact)); this.contacts.unshift(contact); this.newContact = {name:'',phone:'',email:'',company:''}; this.showContactForm = false; }
+            try { const contact = await this.api('/contacts', this.jsonOptions(this.newContact)); this.contacts.unshift(contact); this.newContact = {name:'',phone:'',email:'',company:''}; this.showContactForm = false; this.syncModalScrollLock(); }
           catch (error) { this.error = error.message; }
         },
         async dropLead(status) { if (!this.draggingLeadId) return; const lead = this.leads.find(item => item.id === this.draggingLeadId); this.draggingLeadId = null; if (lead && lead.status !== status) await this.updateLeadStatus(lead, status); },
@@ -891,6 +1002,7 @@
           this.dealCardTab = 'timeline';
           this.dealTimeline = await this.api(`/leads/${id}/timeline`);
           this.calculationLeadId = id;
+          this.syncModalScrollLock();
         },
         async saveSpecs() {
           try {
