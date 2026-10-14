@@ -943,7 +943,7 @@
         isOverdue(lead) { return lead.next_contact_at && new Date(lead.next_contact_at) < new Date() && !this.stageTerminal(lead.status); },
         openLeadForm() { this.resetLeadForm(); this.showLeadForm = true; this.syncModalScrollLock(); },
         async createLead() {
-          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; await this.loadTaskDashboard(); }
+          try { const payload = {...this.newLead, next_contact_at: this.iso(this.newLead.next_contact_at), amount: this.newLead.amount || null, responsible_user_id: this.newLead.responsible_user_id || null}; const lead = await this.api('/leads', this.jsonOptions(payload)); this.leads.unshift(lead); this.showLeadForm = false; this.syncModalScrollLock(); await this.loadTaskDashboard(); }
           catch (error) { this.error = error.message; }
         },
         async createContact() {
