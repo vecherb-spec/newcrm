@@ -1,9 +1,12 @@
 import email
 import imaplib
+import logging
 from datetime import UTC, datetime
 from email.header import decode_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
+
+logger = logging.getLogger(__name__)
 
 
 def decode_mime_header(value: str | None) -> str:
@@ -99,17 +102,24 @@ def fetch_messages_since(
         return []
     parsed_messages: list[dict[str, object]] = []
     for num in data[0].split():
-        fetch_status, fetched = connection.fetch(num, "(BODY.PEEK[])")
-        if fetch_status != "OK" or not fetched:
+        try:
+            fetch_status, fetched = connection.fetch(num, "(BODY.PEEK[])")
+            if fetch_status != "OK" or not fetched:
+                logger.warning("IMAP fetch failed for seq=%s status=%s", num, fetch_status)
+                continue
+            raw_bytes = b""
+            for item in fetched:
+                if isinstance(item, tuple) and len(item) >= 2 and isinstance(item[1], bytes):
+                    raw_bytes = item[1]
+                    break
+            if not raw_bytes:
+                logger.warning("IMAP empty body for seq=%s", num)
+                continue
+            parsed = parse_raw_email(raw_bytes)
+            parsed["imap_seq"] = num.decode() if isinstance(num, bytes) else str(num)
+            parsed_messages.append(parsed)
+        except Exception:
+            logger.exception("IMAP parse failed for seq=%s", num)
             continue
-        raw_bytes = b""
-        for item in fetched:
-            if isinstance(item, tuple) and len(item) >= 2 and isinstance(item[1], bytes):
-                raw_bytes = item[1]
-                break
-        if not raw_bytes:
-            continue
-        parsed = parse_raw_email(raw_bytes)
-        parsed_messages.append(parsed)
     connection.logout()
     return parsed_messages

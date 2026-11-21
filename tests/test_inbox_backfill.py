@@ -205,3 +205,55 @@ def test_ingest_backfill_persists_email_message(monkeypatch) -> None:
     finally:
         app.dependency_overrides.clear()
         asyncio.run(engine.dispose())
+
+
+def test_ingest_backfill_accepts_long_email_subject() -> None:
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from app.core.database import Base
+    from app.modules.inbox.backfill import ingest_backfill_items
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+    long_subject = "А" * 400
+
+    async def run() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with sessions() as session:
+            stored = await ingest_backfill_items(
+                session,
+                channel=InboxChannel.EMAIL,
+                items=[
+                    {
+                        "external_chat_id": "no-reply@tektorg.ru",
+                        "conversation_title": long_subject,
+                        "contact": {"email": "no-reply@tektorg.ru"},
+                        "messages": [
+                            {
+                                "external_id": "<long-subject@tektorg.ru>",
+                                "direction": "inbound",
+                                "body": "тело",
+                                "sender_name": "Tektorg",
+                                "occurred_at": "2026-10-19T12:00:00+00:00",
+                            }
+                        ],
+                    }
+                ],
+            )
+            assert stored == 1
+            conversation = await session.scalar(select(InboxConversation))
+            assert conversation is not None
+            assert conversation.title == long_subject
+            assert len(conversation.title) == 400
+
+    try:
+        asyncio.run(run())
+    finally:
+        asyncio.run(engine.dispose())
