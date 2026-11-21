@@ -52,6 +52,14 @@ async def apply_stock_transaction(
         if sku.quantity_reserved < quantity:
             raise StockError("Резерв меньше запрошенного количества")
         sku.quantity_reserved -= quantity
+    elif tx_type is StockTransactionType.RETURN:
+        sku.quantity_on_hand += quantity
+        if project_id and sku.quantity_reserved >= quantity:
+            sku.quantity_reserved -= quantity
+    elif tx_type is StockTransactionType.WRITE_OFF:
+        if available_quantity(sku) < quantity:
+            raise StockError("Недостаточно остатка для списания в брак")
+        sku.quantity_on_hand -= quantity
     else:
         raise StockError("Неизвестный тип операции")
 

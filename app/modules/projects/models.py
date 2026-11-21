@@ -1,12 +1,14 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import JSON, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, UUIDTimestampMixin
+from app.modules.auth.models import User
 
 
 class ProjectStatus(StrEnum):
@@ -41,6 +43,14 @@ class Project(UUIDTimestampMixin, Base):
         ForeignKey("engineering_calculations.id"), index=True
     )
     amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    responsible_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id"),
+        index=True,
+    )
+    deadline: Mapped[date | None] = mapped_column(Date)
+    specs: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    files: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    responsible_user: Mapped[User | None] = relationship(foreign_keys=[responsible_user_id])
     tasks: Mapped[list["ProjectTask"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

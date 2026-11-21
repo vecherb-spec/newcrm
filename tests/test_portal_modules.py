@@ -140,17 +140,18 @@ def test_installation_conflicts_and_calendar() -> None:
         asyncio.run(engine.dispose())
 
 
-def test_project_auto_create_from_signed_paid_won_lead() -> None:
+def test_project_auto_create_on_prepayment_stage() -> None:
     client, engine = _client()
     try:
         lead = client.post(
             "/api/v1/leads",
             json={
                 "title": "Экран в офис",
-                "status": "CLOSED_WON",
+                "status": "PREPAYMENT",
                 "amount": "500000",
                 "contract_signed": True,
                 "paid": True,
+                "specs": {"screen": {"install_address": "Москва, ул. Тестовая 1"}},
             },
         )
         assert lead.status_code == 201
@@ -160,10 +161,92 @@ def test_project_auto_create_from_signed_paid_won_lead() -> None:
         assert project.status_code == 200
         assert project.json() is not None
         assert project.json()["amount"] == "500000.00"
+        assert project.json()["status"] == "PLANNING"
+        assert project.json()["installation_address"] == "Москва, ул. Тестовая 1"
 
         detail = client.get(f"/api/v1/projects/{project.json()['id']}")
         assert detail.status_code == 200
         assert detail.json()["economics"] is not None
+        assert detail.json()["specs"]["screen"]["install_address"] == "Москва, ул. Тестовая 1"
+    finally:
+        app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
+
+
+def test_project_manual_create_without_closed_won() -> None:
+    client, engine = _client()
+    try:
+        lead = client.post(
+            "/api/v1/leads",
+            json={
+                "title": "Ручной проект",
+                "status": "NEGOTIATION",
+                "contract_signed": True,
+                "paid": True,
+            },
+        )
+        assert lead.status_code == 201
+        lead_id = lead.json()["id"]
+
+        empty = client.get(f"/api/v1/projects/by-lead/{lead_id}")
+        assert empty.json() is None
+
+        created = client.post(f"/api/v1/leads/{lead_id}/create-project")
+        assert created.status_code == 201
+        project_id = created.json()["project_id"]
+
+        detail = client.get(f"/api/v1/projects/{project_id}")
+        assert detail.status_code == 200
+        assert len(detail.json()["tasks"]) >= 1
+    finally:
+        app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
+
+
+def test_stock_return_write_off_and_project_reserve() -> None:
+    client, engine = _client()
+    try:
+        sku = client.post(
+            "/api/v1/inventory/skus",
+            json={"code": "CAB-100", "name": "Кабинет", "category": "cabinet", "unit_cost": "1"},
+        ).json()
+        client.post(
+            "/api/v1/inventory/transactions",
+            json={"sku_id": sku["id"], "type": "RECEIPT", "quantity": "5"},
+        )
+
+        project = client.post("/api/v1/projects", json={"name": "Резервный"}).json()
+        reserve = client.post(
+            f"/api/v1/projects/{project['id']}/reservations",
+            json={"sku_id": sku["id"], "quantity": "2", "note": "под монтаж"},
+        )
+        assert reserve.status_code == 201
+
+        listed = client.get("/api/v1/inventory/skus?query=CAB")
+        item = listed.json()[0]
+        assert item["quantity_reserved"] == "2.000"
+
+        write_off = client.post(
+            "/api/v1/inventory/transactions",
+            json={"sku_id": sku["id"], "type": "WRITE_OFF", "quantity": "1"},
+        )
+        assert write_off.status_code == 201
+
+        returned = client.post(
+            "/api/v1/inventory/transactions",
+            json={
+                "sku_id": sku["id"],
+                "type": "RETURN",
+                "quantity": "1",
+                "project_id": project["id"],
+            },
+        )
+        assert returned.status_code == 201
+
+        timeline = client.get(f"/api/v1/projects/{project['id']}/timeline")
+        assert timeline.status_code == 200
+        kinds = {event["kind"] for event in timeline.json()}
+        assert "stock" in kinds
     finally:
         app.dependency_overrides.clear()
         asyncio.run(engine.dispose())

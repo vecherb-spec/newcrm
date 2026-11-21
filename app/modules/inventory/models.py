@@ -14,6 +14,8 @@ class StockTransactionType(StrEnum):
     ADJUSTMENT = "ADJUSTMENT"
     RESERVATION = "RESERVATION"
     RELEASE = "RELEASE"
+    RETURN = "RETURN"
+    WRITE_OFF = "WRITE_OFF"
 
 
 class SKU(UUIDTimestampMixin, Base):

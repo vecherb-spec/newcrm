@@ -37,6 +37,7 @@ class CrewMember(UUIDTimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(160))
     phone: Mapped[str | None] = mapped_column(String(40))
     role: Mapped[CrewRole] = mapped_column(Enum(CrewRole))
+    is_internal: Mapped[bool] = mapped_column(default=True)
     jobs: Mapped[list["InstallationJob"]] = relationship(
         secondary=installation_job_crew,
         back_populates="crew",

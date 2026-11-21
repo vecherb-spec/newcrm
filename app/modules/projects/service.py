@@ -1,3 +1,4 @@
+from copy import deepcopy
 from uuid import UUID
 
 from sqlalchemy import select
@@ -7,6 +8,13 @@ from sqlalchemy.orm import selectinload
 from app.modules.calculator.models import EngineeringCalculation
 from app.modules.crm.models import Lead, LeadStatus
 from app.modules.projects.models import Project, ProjectStatus, ProjectTask
+
+AUTO_PROJECT_STAGE_CODES = frozenset(
+    {
+        LeadStatus.PREPAYMENT.value,
+        LeadStatus.PRODUCTION.value,
+    }
+)
 
 DEFAULT_TASKS = (
     "Сварка металлокаркаса",
@@ -18,11 +26,17 @@ DEFAULT_TASKS = (
 
 
 def lead_ready_for_project(lead: Lead) -> bool:
-    return (
-        lead.status == LeadStatus.CLOSED_WON.value
-        and lead.contract_signed
-        and lead.paid
-    )
+    return bool(lead.contract_signed and lead.paid)
+
+
+def _address_from_lead_specs(lead: Lead) -> str | None:
+    specs = lead.specs or {}
+    for key in ("lead_client", "screen", "structure"):
+        section = specs.get(key) or {}
+        address = section.get("install_address") or section.get("legal_address")
+        if address:
+            return str(address)
+    return None
 
 
 async def latest_calculation_id(session: AsyncSession, lead_id: UUID) -> UUID | None:
@@ -50,16 +64,20 @@ async def create_project_from_lead(
     existing = await get_project_for_lead(session, lead.id)
     if existing:
         return existing
-    if lead.status != LeadStatus.CLOSED_WON.value:
-        raise ValueError("Проект можно создать только из выигранной сделки")
+    if not lead_ready_for_project(lead):
+        raise ValueError("Проект доступен после подписания договора и оплаты")
     calculation_id = await latest_calculation_id(session, lead.id)
+    install_address = _address_from_lead_specs(lead)
     project = Project(
         name=lead.title,
         lead_id=lead.id,
-        status=ProjectStatus.PROCUREMENT,
-        installation_address=None,
+        status=ProjectStatus.PLANNING,
+        installation_address=install_address,
         calculation_id=calculation_id,
         amount=lead.amount,
+        responsible_user_id=lead.responsible_user_id,
+        specs=deepcopy(lead.specs or {}),
+        files=deepcopy((lead.specs or {}).get("files") or {}),
     )
     if create_default_tasks:
         project.tasks = [ProjectTask(title=title) for title in DEFAULT_TASKS]
@@ -70,5 +88,7 @@ async def create_project_from_lead(
 
 async def maybe_auto_create_project(session: AsyncSession, lead: Lead) -> Project | None:
     if not lead_ready_for_project(lead):
+        return None
+    if lead.status not in AUTO_PROJECT_STAGE_CODES:
         return None
     return await create_project_from_lead(session, lead)

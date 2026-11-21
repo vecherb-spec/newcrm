@@ -10,10 +10,12 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_session
 from app.modules.auth.router import CurrentUser
-from app.modules.crm.models import Lead, LeadStatus
+from app.modules.crm.models import Lead
 from app.modules.crm.schemas import ContactRead
 from app.modules.finance.router import ProjectEconomics, project_economics
 from app.modules.installations.models import InstallationJob
+from app.modules.inventory.models import StockTransaction, StockTransactionType
+from app.modules.inventory.router import StockTransactionRead
 from app.modules.inventory.service import list_project_reservations
 from app.modules.projects.models import (
     Project,
@@ -25,9 +27,15 @@ from app.modules.projects.models import (
 from app.modules.projects.service import (
     create_project_from_lead,
     get_project_for_lead,
+    lead_ready_for_project,
 )
+from app.modules.projects.timeline import build_project_timeline
 
-router = APIRouter(prefix="/projects", tags=["Projects"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["Projects"],
+    responses={404: {"description": "Проект не найден"}},
+)
 
 
 class ProjectCreate(BaseModel):
@@ -102,6 +110,10 @@ class ProjectRead(BaseModel):
     installation_address: str | None
     calculation_id: UUID | None
     amount: Decimal | None
+    responsible_user_id: UUID | None = None
+    deadline: date | None = None
+    specs: dict[str, object] = Field(default_factory=dict)
+    files: dict[str, object] = Field(default_factory=dict)
     tasks: list[TaskRead]
 
 
@@ -123,9 +135,23 @@ class ProjectUpdate(BaseModel):
     installation_date: date | None = None
     installation_address: str | None = None
     amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    responsible_user_id: UUID | None = None
+    deadline: date | None = None
+    specs: dict[str, object] | None = None
 
 
-@router.get("", response_model=list[ProjectRead])
+class ProjectReservationCreate(BaseModel):
+    sku_id: UUID
+    quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
+    note: str | None = None
+
+
+@router.get(
+    "",
+    response_model=list[ProjectRead],
+    summary="Список проектов",
+    description="Все проекты с чеклистом задач. Доска: GET /projects/board.",
+)
 async def list_projects(session: AsyncSession = Depends(get_session)) -> list[Project]:
     query = select(Project).options(selectinload(Project.tasks)).order_by(Project.created_at.desc())
     return list(await session.scalars(query))
@@ -158,10 +184,10 @@ async def create_project(
         lead = await session.get(Lead, payload.lead_id)
         if lead is None:
             raise HTTPException(status_code=404, detail="Lead not found")
-        if lead.status != LeadStatus.CLOSED_WON.value:
+        if not lead_ready_for_project(lead):
             raise HTTPException(
                 status_code=409,
-                detail="Project can only be created from a won lead",
+                detail="Проект доступен после подписания договора и оплаты",
             )
         project = await create_project_from_lead(
             session,
@@ -264,6 +290,53 @@ async def get_project_detail(
     )
 
 
+@router.get(
+    "/{project_id}/timeline",
+    summary="Лента проекта",
+    description="Заметки, чеклист, монтажи и движения склада по проекту.",
+)
+async def project_timeline(
+    project_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    await _get_project(project_id, session)
+    return await build_project_timeline(session, project_id)
+
+
+@router.post(
+    "/{project_id}/reservations",
+    response_model=StockTransactionRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Зарезервировать SKU под проект",
+)
+async def reserve_stock_for_project(
+    project_id: UUID,
+    payload: ProjectReservationCreate,
+    session: AsyncSession = Depends(get_session),
+) -> StockTransaction:
+    from app.modules.inventory.service import (
+        StockError,
+        apply_stock_transaction,
+        stock_error_to_http,
+    )
+
+    await _get_project(project_id, session)
+    try:
+        transaction = await apply_stock_transaction(
+            session,
+            sku_id=payload.sku_id,
+            tx_type=StockTransactionType.RESERVATION,
+            quantity=payload.quantity,
+            project_id=project_id,
+            note=payload.note,
+        )
+    except StockError as error:
+        raise stock_error_to_http(error) from error
+    await session.commit()
+    await session.refresh(transaction)
+    return transaction
+
+
 @router.patch("/{project_id}", response_model=ProjectRead)
 async def update_project(
     project_id: UUID,
@@ -271,7 +344,11 @@ async def update_project(
     session: AsyncSession = Depends(get_session),
 ) -> Project:
     project = await _get_project(project_id, session)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    specs_patch = updates.pop("specs", None)
+    if specs_patch is not None:
+        project.specs = {**(project.specs or {}), **specs_patch}
+    for field, value in updates.items():
         setattr(project, field, value)
     await session.commit()
     return project
