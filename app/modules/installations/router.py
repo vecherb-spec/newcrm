@@ -15,13 +15,18 @@ from app.modules.installations.models import (
     InstallationStatus,
 )
 
-router = APIRouter(prefix="/installations", tags=["Installations"])
+router = APIRouter(
+    prefix="/installations",
+    tags=["Installations"],
+    responses={404: {"description": "Монтаж или бригада не найдены"}},
+)
 
 
 class CrewMemberCreate(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     role: CrewRole
+    is_internal: bool = True
 
 
 class CrewMemberRead(CrewMemberCreate):
@@ -203,7 +208,12 @@ async def list_installations(
     return result
 
 
-@router.get("/calendar", response_model=list[InstallationRead])
+@router.get(
+    "/calendar",
+    response_model=list[InstallationRead],
+    summary="Календарь монтажей",
+    description="Интервал start–end (неделя/месяц). Конфликты бригады в поле conflicts.",
+)
 async def installation_calendar(
     start: datetime = Query(...),
     end: datetime = Query(...),

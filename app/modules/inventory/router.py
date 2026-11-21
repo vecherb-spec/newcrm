@@ -17,7 +17,11 @@ from app.modules.inventory.service import (
     stock_error_to_http,
 )
 
-router = APIRouter(prefix="/inventory", tags=["Inventory"])
+router = APIRouter(
+    prefix="/inventory",
+    tags=["Inventory"],
+    responses={404: {"description": "SKU или операция не найдены"}},
+)
 
 
 class SKUCreate(BaseModel):
@@ -44,6 +48,7 @@ class SKURead(SKUCreate):
     quantity_on_hand: Decimal
     quantity_reserved: Decimal
     quantity_available: Decimal = Decimal("0")
+    low_stock: bool = False
 
 
 class StockTransactionCreate(BaseModel):
@@ -75,11 +80,18 @@ class ImportResult(BaseModel):
 
 def _sku_read(sku: SKU) -> SKURead:
     payload = SKURead.model_validate(sku)
-    payload.quantity_available = available_quantity(sku)
+    available = available_quantity(sku)
+    payload.quantity_available = available
+    payload.low_stock = available <= sku.minimum_stock
     return payload
 
 
-@router.get("/skus", response_model=list[SKURead])
+@router.get(
+    "/skus",
+    response_model=list[SKURead],
+    summary="Каталог SKU",
+    description="Остатки, резерв, low_stock при quantity_available ≤ minimum_stock.",
+)
 async def list_skus(
     query: str | None = Query(default=None, min_length=1),
     category: str | None = None,

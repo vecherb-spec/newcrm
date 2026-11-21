@@ -158,6 +158,12 @@
         overflow: visible !important;
         max-height: none !important;
       }
+      .portal-section article,
+      .portal-section table {
+        border-color: #e2e8f0 !important;
+        background: #fff !important;
+        color: #0f172a !important;
+      }
       .modal-shell {
         padding: 0 !important;
         overflow: hidden !important;
@@ -523,7 +529,7 @@
         </div>
       </section>
 
-      <section x-show="section==='warehouse'">
+      <section x-show="section==='warehouse'" class="portal-section">
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div><h1 class="text-2xl font-semibold">Склад</h1><p class="text-sm text-slate-500">Каталог SKU, остатки и операции</p></div>
           <div class="flex gap-2">
@@ -532,25 +538,25 @@
             <button @click="showSkuForm=true" class="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">+ SKU</button>
           </div>
         </div>
-        <section class="mb-5 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+        <section class="mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <table class="w-full text-sm">
-            <thead class="border-b border-slate-800 bg-slate-950/60 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Код</th><th class="px-4 py-3">Название</th><th class="px-4 py-3">Категория</th><th class="px-4 py-3">На складе</th><th class="px-4 py-3">Резерв</th><th class="px-4 py-3">Доступно</th><th class="px-4 py-3">Мин.</th></tr></thead>
-            <tbody><template x-for="sku in skus" :key="sku.id"><tr :class="Number(sku.quantity_available) <= Number(sku.minimum_stock) ? 'bg-rose-950/40' : ''"><td class="px-4 py-3 font-medium" x-text="sku.code"></td><td class="px-4 py-3" x-text="sku.name"></td><td class="px-4 py-3" x-text="sku.category"></td><td class="px-4 py-3" x-text="sku.quantity_on_hand"></td><td class="px-4 py-3" x-text="sku.quantity_reserved"></td><td class="px-4 py-3" x-text="sku.quantity_available"></td><td class="px-4 py-3" x-text="sku.minimum_stock"></td></tr></template></tbody>
+            <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Код</th><th class="px-4 py-3">Название</th><th class="px-4 py-3">Категория</th><th class="px-4 py-3">На складе</th><th class="px-4 py-3">Резерв</th><th class="px-4 py-3">Доступно</th><th class="px-4 py-3">Мин.</th></tr></thead>
+            <tbody><template x-for="sku in skus" :key="sku.id"><tr :class="sku.low_stock ? 'bg-rose-50' : ''"><td class="px-4 py-3 font-medium" x-text="sku.code"></td><td class="px-4 py-3" x-text="sku.name"></td><td class="px-4 py-3" x-text="sku.category"></td><td class="px-4 py-3" x-text="sku.quantity_on_hand"></td><td class="px-4 py-3" x-text="sku.quantity_reserved"></td><td class="px-4 py-3" x-text="sku.quantity_available"></td><td class="px-4 py-3" x-text="sku.minimum_stock"></td></tr></template></tbody>
           </table>
         </section>
         <section class="grid gap-4 lg:grid-cols-2">
-          <form @submit.prevent="postStockTransaction" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <form @submit.prevent="postStockTransaction" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 class="text-sm font-semibold">Операция со складом</h2>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <select x-model="stockForm.sku_id" required class="col-span-2 rounded border px-3 py-2 text-sm"><option value="">Выберите SKU</option><template x-for="sku in skus" :key="sku.id"><option :value="sku.id" x-text="`${sku.code} — ${sku.name}`"></option></template></select>
-              <select x-model="stockForm.type" class="rounded border px-3 py-2 text-sm"><option value="RECEIPT">Приход</option><option value="ISSUE">Списание</option><option value="RESERVATION">Резерв под проект</option><option value="RELEASE">Снятие резерва</option></select>
+              <select x-model="stockForm.type" class="rounded border px-3 py-2 text-sm"><option value="RECEIPT">Приход</option><option value="ISSUE">Выдача</option><option value="RESERVATION">Резерв под проект</option><option value="RELEASE">Снятие резерва</option><option value="RETURN">Возврат</option><option value="WRITE_OFF">Списание в брак</option></select>
               <input x-model="stockForm.quantity" type="number" min="0.001" step="0.001" required placeholder="Кол-во" class="rounded border px-3 py-2 text-sm">
               <select x-model="stockForm.project_id" class="col-span-2 rounded border px-3 py-2 text-sm"><option value="">Проект (для резерва)</option><template x-for="project in projects" :key="project.id"><option :value="project.id" x-text="project.name"></option></template></select>
               <input x-model="stockForm.note" placeholder="Комментарий" class="col-span-2 rounded border px-3 py-2 text-sm">
             </div>
             <button class="mt-3 rounded bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Провести</button>
           </form>
-          <form @submit.prevent="importInventoryCsv" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <form @submit.prevent="importInventoryCsv" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 class="text-sm font-semibold">Импорт CSV</h2>
             <p class="mt-1 text-xs text-slate-500">code,name,category,unit,unit_cost,quantity_on_hand,minimum_stock</p>
             <input type="file" accept=".csv" @change="inventoryCsvFile = $event.target.files[0]" class="mt-3 w-full text-sm">
@@ -559,48 +565,44 @@
         </section>
       </section>
 
-      <section x-show="section==='installations'">
+      <section x-show="section==='installations'" class="portal-section">
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div><h1 class="text-2xl font-semibold">Монтажи</h1><p class="text-sm text-slate-500">Календарь бригад и задания на объекте</p></div>
-          <div class="flex gap-2">
-            <button @click="installationMode='list'" :class="installationMode==='list' ? 'bg-cyan-500/15 text-cyan-300' : ''" class="rounded px-3 py-2 text-sm">Список</button>
-            <button @click="installationMode='calendar'; loadInstallationCalendar()" :class="installationMode==='calendar' ? 'bg-cyan-500/15 text-cyan-300' : ''" class="rounded px-3 py-2 text-sm">Календарь</button>
+          <div class="flex flex-wrap gap-2">
+            <button @click="installationMode='list'" :class="installationMode==='list' ? 'bg-cyan-100 text-cyan-800' : 'border border-slate-200'" class="rounded px-3 py-2 text-sm">Список</button>
+            <button @click="installationMode='calendar'; loadInstallationCalendar()" :class="installationMode==='calendar' ? 'bg-cyan-100 text-cyan-800' : 'border border-slate-200'" class="rounded px-3 py-2 text-sm">Календарь</button>
+            <template x-if="installationMode==='calendar'">
+              <span class="flex gap-1">
+                <button type="button" @click="installationRange='week'; loadInstallationCalendar()" :class="installationRange==='week' ? 'bg-slate-900 text-white' : 'border border-slate-200'" class="rounded px-2 py-2 text-xs">Неделя</button>
+                <button type="button" @click="installationRange='month'; loadInstallationCalendar()" :class="installationRange==='month' ? 'bg-slate-900 text-white' : 'border border-slate-200'" class="rounded px-2 py-2 text-xs">Месяц</button>
+              </span>
+            </template>
           </div>
         </div>
         <section x-show="installationMode==='list'" class="space-y-3">
           <template x-for="job in installations" :key="job.id">
-            <article class="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <div class="flex justify-between gap-3"><div><p class="font-semibold" x-text="job.title"></p><p class="text-sm text-slate-500" x-text="job.address"></p><p class="mt-1 text-xs text-slate-500" x-text="`${dateTime(job.starts_at)} — ${dateTime(job.ends_at)}`"></p></div><span class="text-xs uppercase text-cyan-400" x-text="job.status"></span></div>
-              <p x-show="job.conflicts?.length" class="mt-2 rounded bg-amber-500/10 px-3 py-2 text-xs text-amber-400">Конфликт расписания: сотрудник занят в это время</p>
+            <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div class="flex justify-between gap-3"><div><p class="font-semibold" x-text="job.title"></p><p class="text-sm text-slate-500" x-text="job.address"></p><p class="mt-1 text-xs text-slate-500" x-text="`${dateTime(job.starts_at)} — ${dateTime(job.ends_at)}`"></p></div><span class="text-xs uppercase text-cyan-700" x-text="job.status"></span></div>
+              <p x-show="job.conflicts?.length" class="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-800">Конфликт расписания: сотрудник занят в это время</p>
             </article>
           </template>
         </section>
         <section x-show="installationMode==='calendar'" class="grid gap-3 md:grid-cols-2">
-          <template x-for="job in installationCalendar" :key="job.id"><article class="rounded-xl border border-slate-800 bg-slate-900 p-4"><p class="font-medium" x-text="job.title"></p><p class="text-xs text-slate-500" x-text="dateTime(job.starts_at)"></p></article></template>
+          <template x-for="job in installationCalendar" :key="job.id"><article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p class="font-medium" x-text="job.title"></p><p class="text-xs text-slate-500" x-text="job.address"></p><p class="text-xs text-slate-500" x-text="`${dateTime(job.starts_at)} — ${dateTime(job.ends_at)}`"></p></article></template>
         </section>
       </section>
 
-      <section x-show="section==='projects'">
-        <div class="mb-5 flex items-center justify-between"><div><h1 class="text-2xl font-semibold">Проекты</h1><p class="text-sm text-slate-500">Доска этапов и карточка проекта</p></div><button @click="loadProjectBoard()" class="rounded border border-slate-700 px-3 py-2 text-sm">Обновить доску</button></div>
+      <section x-show="section==='projects'" class="portal-section">
+        <div class="mb-5 flex items-center justify-between"><div><h1 class="text-2xl font-semibold">Проекты</h1><p class="text-sm text-slate-500">Доска этапов и карточка проекта</p></div><button @click="loadProjectBoard()" class="rounded border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">Обновить доску</button></div>
         <section class="mb-5 flex gap-3 overflow-x-auto pb-2">
           <template x-for="column in projectColumns" :key="column.code">
-            <div class="min-w-[220px] rounded-xl border border-slate-800 bg-slate-900 p-3">
+            <div class="min-w-[220px] rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
               <p class="mb-2 text-xs font-semibold uppercase text-slate-500" x-text="column.label"></p>
               <template x-for="project in (projectBoard[column.code] || [])" :key="project.id">
-                <button @click="openProject(project.id)" class="mb-2 block w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left hover:border-cyan-500/40"><p class="text-sm font-medium" x-text="project.name"></p><p class="text-xs text-slate-500" x-text="project.amount ? money(project.amount) : 'Без суммы'"></p></button>
+                <button @click="openProject(project.id)" class="mb-2 block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-cyan-400"><p class="text-sm font-medium" x-text="project.name"></p><p class="text-xs text-slate-500" x-text="project.amount ? money(project.amount) : 'Без суммы'"></p></button>
               </template>
             </div>
           </template>
-        </section>
-        <section x-show="selectedProject" class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <div class="flex justify-between"><h2 class="text-lg font-semibold" x-text="selectedProject?.name"></h2><button @click="selectedProject=null" class="text-sm text-slate-500">Закрыть</button></div>
-          <p class="mt-1 text-sm text-slate-500" x-text="projectStatusLabel(selectedProject?.status)"></p>
-          <div class="mt-4 grid gap-4 lg:grid-cols-3">
-            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Маржа</p><p class="text-lg font-semibold" x-text="selectedProject?.economics ? money(selectedProject.economics.gross_margin) : '—'"></p></div>
-            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Резерв склада</p><p class="text-lg font-semibold" x-text="selectedProject?.reserved_stock?.length || 0"></p></div>
-            <div class="rounded-lg border border-slate-800 p-3"><p class="text-xs text-slate-500">Монтажи</p><p class="text-lg font-semibold" x-text="selectedProject?.installations?.length || 0"></p></div>
-          </div>
-          <form @submit.prevent="addProjectNote" class="mt-4 flex gap-2"><input x-model="projectNote" required placeholder="Внутренняя заметка по проекту" class="flex-1 rounded border px-3 py-2 text-sm"><button class="rounded bg-slate-700 px-3 text-sm">Добавить</button></form>
         </section>
       </section>
 
@@ -818,12 +820,79 @@
     </div>
   </div>
 
+  <div x-cloak x-show="selectedProject" class="deal-card-overlay fixed inset-0 z-50 flex bg-slate-900/70 p-3 md:p-5" @keydown.escape.window="closeProjectCard()">
+    <div class="deal-card-panel mx-auto flex w-full max-w-[1200px] max-h-[96vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-slate-900 shadow-2xl">
+      <header class="deal-card-header shrink-0 border-b border-slate-200 bg-white px-5 py-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <h2 class="text-lg font-semibold" x-text="selectedProject?.name"></h2>
+            <p class="mt-1 text-xs text-slate-500" x-text="selectedProject?.installation_address || 'Адрес не указан'"></p>
+          </div>
+          <button type="button" @click="closeProjectCard()" class="deal-close-btn rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-600">Закрыть</button>
+        </div>
+        <div class="deal-controls mt-3 flex flex-wrap items-center gap-2">
+          <select x-model="selectedProject.status" @change="patchProjectStatus()" class="rounded border border-slate-300 px-2 py-1 text-sm">
+            <template x-for="column in projectColumns" :key="column.code"><option :value="column.code" x-text="column.label"></option></template>
+          </select>
+          <input type="date" x-model="selectedProject.deadline" @change="patchProjectDeadline()" class="rounded border border-slate-300 px-2 py-1 text-sm">
+          <button type="button" x-show="selectedProject?.lead_id" @click="openDeal(selectedProject.lead_id)" class="text-sm text-cyan-700">Сделка</button>
+        </div>
+        <div class="deal-tabs mt-3 flex gap-2 text-sm">
+          <button type="button" @click="projectTab='overview'" :class="projectTab==='overview' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200'" class="rounded px-3 py-1.5">Обзор</button>
+          <button type="button" @click="projectTab='checklist'" :class="projectTab==='checklist' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200'" class="rounded px-3 py-1.5">Чеклист</button>
+          <button type="button" @click="projectTab='specs'" :class="projectTab==='specs' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200'" class="rounded px-3 py-1.5">ТЗ</button>
+          <button type="button" @click="projectTab='timeline'; loadProjectTimeline()" :class="projectTab==='timeline' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200'" class="rounded px-3 py-1.5">Лента</button>
+        </div>
+      </header>
+      <div class="deal-card-body deal-card-scroll min-h-0 flex-1 space-y-4 bg-slate-50 p-4">
+        <section x-show="projectTab==='overview'" class="space-y-4">
+          <div class="grid gap-3 sm:grid-cols-3">
+            <article class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><p class="text-xs text-slate-500">Маржа</p><p class="text-lg font-semibold" x-text="selectedProject?.economics ? money(selectedProject.economics.gross_margin) : '—'"></p></article>
+            <article class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><p class="text-xs text-slate-500">Резерв склада</p><p class="text-lg font-semibold" x-text="selectedProject?.reserved_stock?.length || 0"></p></article>
+            <article class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><p class="text-xs text-slate-500">Монтажи</p><p class="text-lg font-semibold" x-text="selectedProject?.installations?.length || 0"></p></article>
+          </div>
+          <form @submit.prevent="reserveProjectStock" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 class="text-sm font-semibold">Резерв со склада</h3>
+            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+              <select x-model="projectReserveForm.sku_id" required class="rounded border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2"><option value="">SKU</option><template x-for="sku in skus" :key="sku.id"><option :value="sku.id" x-text="`${sku.code} (${sku.quantity_available})`"></option></template></select>
+              <input x-model="projectReserveForm.quantity" type="number" min="0.001" step="0.001" required placeholder="Кол-во" class="rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <input x-model="projectReserveForm.note" placeholder="Комментарий" class="rounded border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2">
+              <button class="rounded bg-cyan-600 px-3 py-1.5 text-sm font-semibold text-white">Зарезервировать</button>
+            </div>
+          </form>
+          <form @submit.prevent="addProjectNote" class="flex gap-2"><input x-model="projectNote" required placeholder="Внутренняя заметка" class="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"><button class="rounded bg-slate-800 px-3 text-sm text-white">Добавить</button></form>
+        </section>
+        <section x-show="projectTab==='checklist'" class="space-y-2">
+          <template x-for="task in selectedProject?.tasks || []" :key="task.id">
+            <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <span x-text="task.title"></span>
+              <span class="text-xs text-slate-500" x-text="task.status"></span>
+            </div>
+          </template>
+        </section>
+        <section x-show="projectTab==='specs'" class="rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-sm">
+          <pre class="whitespace-pre-wrap break-words text-slate-700" x-text="JSON.stringify(selectedProject?.specs || {}, null, 2)"></pre>
+        </section>
+        <section x-show="projectTab==='timeline'" class="space-y-2">
+          <template x-for="event in projectTimeline" :key="event.meta?.transaction_id || event.meta?.note_id || event.title + (event.at || '')">
+            <article class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <p class="text-xs text-slate-500" x-text="dateTime(event.at)"></p>
+              <p class="font-medium" x-text="event.title"></p>
+              <p class="text-slate-600" x-text="event.body"></p>
+            </article>
+          </template>
+          <p x-show="!projectTimeline.length" class="text-center text-sm text-slate-500">Событий пока нет</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <script>
     function crmApp() {
       return {
         token: localStorage.getItem('ledops_token') || '', user: null, users: [], leads: [], contacts: [], calculations: [], tasks: [], taskCalendar: [], inboxChannels: [], conversations: [],
-        skus: [], projects: [], projectBoard: {}, selectedProject: null, projectNote: '', inventoryQuery: '', inventoryLowOnly: false, inventoryCsvFile: null, showSkuForm: false,
-        installations: [], installationCalendar: [], installationMode: 'list', crew: [],
+        skus: [], projects: [], projectBoard: {}, selectedProject: null, projectTimeline: [], projectTab: 'overview', projectReserveForm: {sku_id:'', quantity:'', note:''}, projectNote: '', inventoryQuery: '', inventoryLowOnly: false, inventoryCsvFile: null, showSkuForm: false,
+        installations: [], installationCalendar: [], installationMode: 'list', installationRange: 'week', crew: [],
         stockForm: {sku_id:'', type:'RECEIPT', quantity:'', project_id:'', note:''}, newSku: {code:'', name:'', category:'module', unit:'pcs', unit_cost:'0', minimum_stock:'0'},
         documents: [], documentsQuery: '', documentForm: {doc_type:'INVOICE', title:'', lead_id:'', project_id:''},
         section: 'pipeline', placeholderTitle: '', error: '', bootstrap: false, showLeadForm: false, showContactForm: false, showTaskForm: false, selectedLead: null,
@@ -842,7 +911,7 @@
         activityTypes: [['CALL','Звонок'],['MESSAGE','Сообщение'],['MEETING','Встреча'],['COMMENT','Комментарий']].map(([code,label]) => ({code,label})),
         taskViews: [['today','Сегодня'],['overdue','Просрочено'],['week','Неделя'],['all','Все']].map(([code,label]) => ({code,label})),
         priorities: [['LOW','Низкий'],['NORMAL','Обычный'],['HIGH','Высокий'],['URGENT','Срочно']].map(([code,label]) => ({code,label})),
-        projectColumns: [['PLANNING','Планирование'],['PROCUREMENT','Закупка'],['PRODUCTION','Производство'],['DELIVERY','Доставка'],['INSTALLATION','Монтаж'],['COMMISSIONING','Сдача'],['COMPLETED','Закрыт']].map(([code,label]) => ({code,label})),
+        projectColumns: [['PLANNING','Подготовка'],['PROCUREMENT','Закупка'],['PRODUCTION','Производство'],['DELIVERY','Доставка'],['INSTALLATION','Монтаж'],['COMMISSIONING','Сдача / акты'],['COMPLETED','Завершён']].map(([code,label]) => ({code,label})),
         navClass(name) { return this.section === name ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'; },
         openPlaceholder(title) { this.placeholderTitle = title; this.section = 'placeholder'; },
         resetLeadForm() { this.newLead = {title: '', contact_name: '', contact_phone: '', contact_company: '', source: 'manual', amount: null, responsible_user_id: this.user?.id || '', next_contact_at: '', raw_text: ''}; },
@@ -858,7 +927,7 @@
         modalScrollLocked: false,
         syncModalScrollLock() {
           const open = Boolean(
-            this.selectedLead || this.showLeadForm || this.showContactForm || this.showTaskForm,
+            this.selectedLead || this.selectedProject || this.showLeadForm || this.showContactForm || this.showTaskForm,
           );
           if (open === this.modalScrollLocked) return;
           this.modalScrollLocked = open;
@@ -869,11 +938,18 @@
           this.selectedLead = null;
           this.syncModalScrollLock();
         },
+        closeProjectCard() {
+          this.selectedProject = null;
+          this.projectTimeline = [];
+          this.projectTab = 'overview';
+          this.syncModalScrollLock();
+        },
         async init() {
           if (!this.token) return;
           try { this.user = await this.api('/auth/me'); await this.loadStages(); await this.loadSpecSchema(); await Promise.all([this.loadUsers(), this.loadLeads(), this.loadCalculations(), this.loadTaskDashboard()]); this.resetLeadForm(); }
           catch (error) { this.error = error.message; }
           this.$watch('selectedLead', () => this.syncModalScrollLock());
+          this.$watch('selectedProject', () => this.syncModalScrollLock());
           this.$watch('showLeadForm', () => this.syncModalScrollLock());
           this.$watch('showContactForm', () => this.syncModalScrollLock());
           this.$watch('showTaskForm', () => this.syncModalScrollLock());
@@ -1047,10 +1123,14 @@
         async importInventoryCsv() { try { if (!this.inventoryCsvFile) throw new Error('Выберите CSV файл'); const body = new FormData(); body.append('file', this.inventoryCsvFile); const response = await fetch('/api/v1/inventory/import/csv', {method:'POST', headers:{Authorization:`Bearer ${this.token}`}, body}); if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка импорта'); await this.loadWarehouse(); } catch (error) { this.error = error.message; } },
         async loadProjects() { this.projects = await this.api('/projects'); },
         async loadProjectBoard() { await this.loadProjects(); const board = await this.api('/projects/board'); this.projectBoard = board.columns || {}; },
-        async openProject(id) { this.section='projects'; this.selectedProject = await this.api(`/projects/${id}`); await this.loadProjectBoard(); },
-        async addProjectNote() { try { await this.api(`/projects/${this.selectedProject.id}/notes`, this.jsonOptions({body:this.projectNote})); this.projectNote=''; this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`); } catch (error) { this.error = error.message; } },
+        async openProject(id) { this.section='projects'; this.projectTab='overview'; if (!this.skus.length) await this.loadWarehouse(); this.selectedProject = await this.api(`/projects/${id}`); await this.loadProjectBoard(); this.syncModalScrollLock(); },
+        async loadProjectTimeline() { if (!this.selectedProject?.id) return; this.projectTimeline = await this.api(`/projects/${this.selectedProject.id}/timeline`); },
+        async patchProjectStatus() { try { this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`, this.jsonOptions({status:this.selectedProject.status}, 'PATCH')); await this.loadProjectBoard(); } catch (error) { this.error = error.message; } },
+        async patchProjectDeadline() { try { const deadline = this.selectedProject.deadline || null; this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`, this.jsonOptions({deadline}, 'PATCH')); } catch (error) { this.error = error.message; } },
+        async reserveProjectStock() { try { await this.api(`/projects/${this.selectedProject.id}/reservations`, this.jsonOptions({...this.projectReserveForm, quantity:this.projectReserveForm.quantity})); this.projectReserveForm = {sku_id:'', quantity:'', note:''}; this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`); await this.loadWarehouse(); } catch (error) { this.error = error.message; } },
+        async addProjectNote() { try { await this.api(`/projects/${this.selectedProject.id}/notes`, this.jsonOptions({body:this.projectNote})); this.projectNote=''; this.selectedProject = await this.api(`/projects/${this.selectedProject.id}`); if (this.projectTab==='timeline') await this.loadProjectTimeline(); } catch (error) { this.error = error.message; } },
         async loadInstallations() { this.installations = await this.api('/installations/jobs'); this.crew = await this.api('/installations/crew'); if (!this.projects.length) await this.loadProjects(); },
-        async loadInstallationCalendar() { const start = new Date(); const end = new Date(start.getTime() + 14*86400000); this.installationCalendar = await this.api(`/installations/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`); },
+        async loadInstallationCalendar() { const start = new Date(); const days = this.installationRange === 'month' ? 31 : 7; const end = new Date(start.getTime() + days*86400000); this.installationCalendar = await this.api(`/installations/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`); },
         async createProjectForDeal() { try { const result = await this.api(`/leads/${this.selectedLead.id}/create-project`, this.jsonOptions({})); await this.openDeal(this.selectedLead.id); await this.openProject(result.project_id); } catch (error) { this.error = error.message; } },
         async loadDocuments() { const params = new URLSearchParams(); if (this.documentsQuery) params.set('query', this.documentsQuery); if (this.selectedLead?.id) params.set('lead_id', this.selectedLead.id); if (this.selectedProject?.id) params.set('project_id', this.selectedProject.id); this.documents = await this.api(`/documents/documents${params.toString() ? `?${params}` : ''}`); if (!this.projects.length) await this.loadProjects(); if (!this.leads.length) await this.loadLeads(); },
         async generateDocument() { try { const payload = {...this.documentForm, lead_id:this.documentForm.lead_id || null, project_id:this.documentForm.project_id || null}; const doc = await this.api('/documents/documents/generate', this.jsonOptions(payload)); this.documentForm.title=''; await this.loadDocuments(); await this.downloadDocument(doc.id,'pdf'); } catch (error) { this.error = error.message; } },
